@@ -1,0 +1,7 @@
+*__pycache__*
+*.xcf
+.idea
+*.mp4
+*.wav
+*.lnk
+logs/*
