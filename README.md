@@ -13,4 +13,5 @@ In particular:
  - A more convenient way to handle keyboard + mouse inputs (inputs.py).
  
  There's also a tiny demo scene to help illustrate the setup.
+ 
  ![demo](demo_scene.gif)
