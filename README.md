@@ -1,14 +1,16 @@
 # pyengine
 
-Note: This isn't meant for public use. It has bugs, it's not well documented, and it's not very good.
+Note: This isn't meant for public use. It has bugs, it's not well documented, and it's not very good. But I like it :)
 
-This repo contains some of the utility functions I use throughout my pygame projects.
+This repo contains some of the utility functions I use in my pygame projects.
 
 In particular:
- - Quick and easy OpenGL setup.
- - Window creation, resizing, and fullscreen management.
- - Automatic pixel scaling based on window size.
- - A layer-based sprite rendering pipeline.
- - Some helpful methods involving music & sounds. 
+ - Quick and easy OpenGL setup (renderengine.py).
+ - Better window creation, resizing, and fullscreen management (window.py).
+ - Pixel scaling based on window size (renderengine.py).
+ - A layer-based sprite rendering system (renderengine.py).
+ - Some helpful methods involving music & sounds (music.py + sounds.py). 
+ - A more convenient way to handle keyboard + mouse inputs (inputs.py).
  
- There's also a tiny demo project to help illustrate the setup.
+ There's also a tiny demo scene to help illustrate the setup.
+ ![demo](demo_scene.gif)
