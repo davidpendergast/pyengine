@@ -20,6 +20,7 @@ class DemoJunk:
 
     tick_count = 0
     px_scale = -1
+    px_scale_options = [-1, 1, 2, 3, 4]
 
     @staticmethod
     def is_dev():
@@ -231,7 +232,7 @@ def run():
 
         if input_state.was_pressed(pygame.K_F5):
             current_scale = DemoJunk.px_scale
-            options = [-1, 0.5, 1, 2, 3, 4]
+            options = DemoJunk.px_scale_options
             if current_scale in options:
                 new_scale = (options.index(current_scale) + 1) % len(options)
             else:
@@ -240,7 +241,7 @@ def run():
             DemoJunk.px_scale = new_scale
 
             display_size = window.get_instance().get_display_size()
-            new_pixel_scale = _calc_pixel_scale(display_size)
+            new_pixel_scale = _calc_pixel_scale(display_size, px_scale_opt=new_scale)
             renderengine.get_instance().set_pixel_scale(new_pixel_scale)
 
         renderengine.get_instance().set_clear_color((0.66, 0.66, 0.66))
@@ -324,7 +325,7 @@ def update_crappy_demo_scene():
     DemoJunk.entity_sprites[0] = player_sprite.update(new_model=new_model,
                                                       new_x=player_x - new_model.width() * player_scale // 2,
                                                       new_y=player_y - new_model.height() * player_scale,
-                                                      new_xflip=new_xflip, new_depth=player_y)
+                                                      new_xflip=new_xflip, new_depth=-player_y)
 
     tv_model = DemoJunk.tv_models[(anim_tick // 2) % len(DemoJunk.tv_models)]
     tv_x = DemoJunk.entity_positions[1][0]
@@ -336,7 +337,7 @@ def update_crappy_demo_scene():
     DemoJunk.entity_sprites[1] = tv_sprite.update(new_model=tv_model,
                                                   new_x=tv_x - tv_model.width() * tv_scale // 2,
                                                   new_y=tv_y - tv_model.height() * tv_scale,
-                                                  new_xflip=tv_xflip, new_depth=tv_y)
+                                                  new_xflip=tv_xflip, new_depth=-tv_y)
 
     for i in range(0, len(DemoJunk.entity_positions)):
         xy = DemoJunk.entity_positions[i]
