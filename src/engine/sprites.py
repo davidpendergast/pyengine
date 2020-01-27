@@ -13,20 +13,39 @@ class SpriteTypes:
     IMAGE = "IMAGE"
     LINE = "LINE"
     RECT = "RECT"
+
+
+class _Sprite:
+
+    def __init__(self, sprite_type, layer_id, uid=None):
+        self._sprite_type = sprite_type
+        self._layer_id = layer_id
+        self._uid = gen_unique_id() if uid is None else uid
+
+    def sprite_type(self):
+        return self._sprite_type
+
+    def layer_id(self):
+        return self._layer_id
+
+    def uid(self):
+        return self._uid
+
+    def __repr__(self):
+        return "_Sprite({}, {}, {})".format(self.sprite_type(), self.layer_id(), self.uid())
     
 
-class ImageBundle:
+class ImageSprite(_Sprite):
 
     @staticmethod
-    def new_bundle(layer_id, scale=1, depth=0):
-        return ImageBundle(None, 0, 0, layer=layer_id, scale=scale, depth=depth)
+    def new_sprite(layer_id, scale=1, depth=0):
+        return ImageSprite(None, 0, 0, layer_id, scale=scale, depth=depth)
 
-    def __init__(self, model, x, y, layer=0, scale=1, depth=1, xflip=False, rotation=0, color=(1, 1, 1), ratio=(1, 1), uid=None):
-        self._unique_id = gen_unique_id() if uid is None else uid
+    def __init__(self, model, x, y, layer_id, scale=1, depth=1, xflip=False, rotation=0, color=(1, 1, 1), ratio=(1, 1), uid=None):
+        _Sprite.__init__(self, SpriteTypes.IMAGE, layer_id, uid=uid)
         self._model = model
         self._x = x
         self._y = y
-        self._layer = layer  # Note: can't be changed once set
         self._scale = scale
         self._depth = depth
         self._xflip = xflip
@@ -60,8 +79,8 @@ class ImageBundle:
                 rotation == self.rotation()):
             return self
         else:
-            res = ImageBundle(model, x, y, scale=scale, depth=depth, xflip=xflip, rotation=rotation,
-                              layer=self.layer(), color=color, ratio=ratio, uid=self.uid())
+            res = ImageSprite(model, x, y, self.layer_id(), scale=scale, depth=depth, xflip=xflip, rotation=rotation,
+                              color=color, ratio=ratio, uid=self.uid())
             res._is_destroyed = self._is_destroyed
             return res
         
@@ -98,9 +117,6 @@ class ImageBundle:
         
     def depth(self):
         return self._depth
-
-    def layer(self):
-        return self._layer
         
     def xflip(self):
         return self._xflip
@@ -114,12 +130,6 @@ class ImageBundle:
 
     def ratio(self):
         return self._ratio
-        
-    def uid(self):
-        return self._unique_id
-
-    def all_bundles(self):
-        yield self
 
     def mark_for_removal(self):
         self._is_destroyed = True
@@ -189,8 +199,8 @@ class ImageBundle:
         indices[6 * i + 5] = 4 * i + 3
 
     def __repr__(self):
-        return "ImageBundle({}, {}, {}, {}, {}, {}, {}, {}, {}. {})".format(
-                self.model(), self.x(), self.y(), self.layer(),
+        return "ImageSprite({}, {}, {}, {}, {}, {}, {}, {}, {}. {})".format(
+                self.model(), self.x(), self.y(), self.layer_id(),
                 self.scale(), self.depth(), self.xflip(), self.color(), self.ratio(), self.uid())
 
 
@@ -230,3 +240,6 @@ class ImageModel:
         
     def __repr__(self):
         return "ImageModel({}, {}, {}, {})".format(self.x, self.y, self.w, self.h)
+
+
+

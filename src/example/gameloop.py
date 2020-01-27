@@ -4,8 +4,10 @@ from src.utils.util import Utils
 import src.engine.sounds as sounds
 import src.engine.window as window
 import src.engine.inputs as inputs
-import src.engine.img as img
+
+import src.engine.sprites as sprites
 import src.engine.renderengine as renderengine
+import src.engine.layers as layers
 
 DEFAULT_SCREEN_SIZE = (800, 600)
 MINIMUM_SCREEN_SIZE = (800, 600)
@@ -29,11 +31,11 @@ class DemoJunk:
     camera_xy = (0, 0)
     cell_size = 32
 
-    player_models = [img.ImageModel(0 + 16 * i, 0, 16, 32) for i in range(0, 2)]
-    tv_models = [img.ImageModel(32 + 16 * i, 0, 16, 32) for i in range(0, 2)]
-    floor_model = img.ImageModel(64, 16, 16, 16)
-    wall_model = img.ImageModel(80, 16, 16, 16)
-    shadow_model = img.ImageModel(64, 0, 16, 16)
+    player_models = [sprites.ImageModel(0 + 16 * i, 0, 16, 32) for i in range(0, 2)]
+    tv_models = [sprites.ImageModel(32 + 16 * i, 0, 16, 32) for i in range(0, 2)]
+    floor_model = sprites.ImageModel(64, 16, 16, 16)
+    wall_model = sprites.ImageModel(80, 16, 16, 16)
+    shadow_model = sprites.ImageModel(64, 0, 16, 16)
 
     all_models = [floor_model, wall_model, shadow_model]
     all_models.extend(player_models)
@@ -51,15 +53,15 @@ class DemoJunk:
     shadow_sprites = []
 
     @staticmethod
-    def all_bundles():
-        for bun in DemoJunk.floor_sprites:
-            yield bun
-        for bun in DemoJunk.wall_sprites:
-            yield bun
-        for bun in DemoJunk.entity_sprites:
-            yield bun
-        for bun in DemoJunk.shadow_sprites:
-            yield bun
+    def all_sprites():
+        for spr in DemoJunk.floor_sprites:
+            yield spr
+        for spr in DemoJunk.wall_sprites:
+            yield spr
+        for spr in DemoJunk.entity_sprites:
+            yield spr
+        for spr in DemoJunk.shadow_sprites:
+            yield spr
 
 
 def init(name_of_game):
@@ -96,18 +98,10 @@ def init(name_of_game):
     # REPLACE with whatever layers you need
     COLOR = True
     SORTS = True
-    render_eng.add_layer(
-        DemoJunk.FLOOR_LAYER, img.SpriteTypes.IMAGE,
-        0, False, COLOR)
-    render_eng.add_layer(
-        DemoJunk.SHADOW_LAYER, img.SpriteTypes.IMAGE,
-        5, False, COLOR)
-    render_eng.add_layer(
-        DemoJunk.WALL_LAYER, img.SpriteTypes.IMAGE,
-        10, False, COLOR)
-    render_eng.add_layer(
-        DemoJunk.ENTITY_LAYER, img.SpriteTypes.IMAGE,
-        15, SORTS, COLOR)
+    render_eng.add_layer(layers.ImageLayer(DemoJunk.FLOOR_LAYER, 0, False, COLOR))
+    render_eng.add_layer(layers.ImageLayer(DemoJunk.SHADOW_LAYER, 5, False, COLOR))
+    render_eng.add_layer(layers.ImageLayer(DemoJunk.WALL_LAYER, 10, False, COLOR))
+    render_eng.add_layer(layers.ImageLayer(DemoJunk.ENTITY_LAYER, 15, SORTS, COLOR))
 
     inputs.create_instance()
 
@@ -267,32 +261,31 @@ def run():
 
 def update_crappy_demo_scene():
     if len(DemoJunk.entity_sprites) == 0:
-        DemoJunk.entity_sprites.append(img.ImageBundle.new_bundle(DemoJunk.ENTITY_LAYER, scale=1))  # player
-        DemoJunk.entity_sprites.append(img.ImageBundle.new_bundle(DemoJunk.ENTITY_LAYER, scale=1))  # tv
+        DemoJunk.entity_sprites.append(sprites.ImageSprite.new_sprite(DemoJunk.ENTITY_LAYER, scale=1))  # player
+        DemoJunk.entity_sprites.append(sprites.ImageSprite.new_sprite(DemoJunk.ENTITY_LAYER, scale=1))  # tv
 
     if len(DemoJunk.wall_sprites) == 0:
         for pos in DemoJunk.wall_positions:
-            new_bundle = img.ImageBundle(DemoJunk.wall_model,
-                                         pos[0] * DemoJunk.cell_size,
-                                         pos[1] * DemoJunk.cell_size,
-                                         layer=DemoJunk.WALL_LAYER, scale=2)
-            DemoJunk.wall_sprites.append(new_bundle)
+            new_sprite = sprites.ImageSprite(DemoJunk.wall_model,
+                                             pos[0] * DemoJunk.cell_size,
+                                             pos[1] * DemoJunk.cell_size,
+                                             DemoJunk.WALL_LAYER, scale=2)
+            DemoJunk.wall_sprites.append(new_sprite)
 
     if len(DemoJunk.floor_sprites) == 0:
         for pos in DemoJunk.floor_positions:
-            new_bundle = img.ImageBundle(DemoJunk.floor_model,
-                                         pos[0] * DemoJunk.cell_size,
-                                         pos[1] * DemoJunk.cell_size,
-                                         layer=DemoJunk.FLOOR_LAYER, scale=2)
-            DemoJunk.floor_sprites.append(new_bundle)
+            new_sprite = sprites.ImageSprite(DemoJunk.floor_model,
+                                             pos[0] * DemoJunk.cell_size,
+                                             pos[1] * DemoJunk.cell_size,
+                                             DemoJunk.FLOOR_LAYER, scale=2)
+            DemoJunk.floor_sprites.append(new_sprite)
 
     if len(DemoJunk.shadow_sprites) == 0:
         for _ in DemoJunk.entity_sprites:
-            DemoJunk.shadow_sprites.append(img.ImageBundle(DemoJunk.shadow_model, 0, 0, scale=1,
-                                                           layer=DemoJunk.SHADOW_LAYER))
+            DemoJunk.shadow_sprites.append(sprites.ImageSprite(DemoJunk.shadow_model, 0, 0,
+                                                               DemoJunk.SHADOW_LAYER, scale=1))
 
     anim_tick = DemoJunk.tick_count // 16
-
 
     speed = 2
     dx = 0
@@ -345,30 +338,11 @@ def update_crappy_demo_scene():
                                                           new_x=shadow_x, new_y=shadow_y)
 
     # publishing new sprites to render engine
-    for bun in DemoJunk.all_bundles():
-        renderengine.get_instance().update(bun)
+    for spr in DemoJunk.all_sprites():
+        renderengine.get_instance().update(spr)
 
     # setting layer positions
     camera_x = player_x - renderengine.get_instance().get_game_size()[0] // 2
     camera_y = player_y - renderengine.get_instance().get_game_size()[1] // 2
     for layer_id in [DemoJunk.ENTITY_LAYER, DemoJunk.SHADOW_LAYER, DemoJunk.WALL_LAYER, DemoJunk.FLOOR_LAYER]:
         renderengine.get_instance().set_layer_offset(layer_id, camera_x, camera_y)
-
-    #world = gs.get_instance().get_world()
-    #if world is not None:
-    #    if world_active:
-    #        RenderEngine.get_instance().set_clear_color(*world.get_bg_color())
-
-    #        world.update_all()
-    #        world_view.update_all()
-
-    #        gs.get_instance().dialog_manager().update(world)
-
-    #        shake = gs.get_instance().get_screenshake()
-    #        camera = gs.get_instance().get_actual_camera_xy()
-    #        for layer_id in spriteref.WORLD_LAYERS:
-    #            renderengine.get_instance().set_layer_offset(layer_id, *Utils.add(camera, shake))
-
-
-    #    elif world_view is not None:
-    #        world_view.cleanup_active_bundles()

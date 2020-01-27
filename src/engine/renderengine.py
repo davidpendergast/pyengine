@@ -4,211 +4,6 @@ from OpenGL.GLU import *
 import numpy
 import math
 
-import src.engine.img as img
-
-
-def assert_int(val):
-    if not isinstance(val, int):
-        raise ValueError("value is not an int: {}".format(val))
-
-
-def pad_or_trunc(l, length):
-    if len(l) < length:
-        return l + [0] * (length - len(l))
-    else:
-        return l[:length]
-
-
-def remove_all_in_place(l, elements):
-    if len(l) == 0:
-        return l
-
-    rem_set = set(elements)
-    last_element = len(l) - 1
-    i = 0
-
-    while i <= last_element:
-        if l[i] in rem_set:
-            while i <= last_element and l[last_element] in rem_set:
-                last_element -= 1
-            if i > last_element:
-                break
-            else:
-                l[i] = l[last_element]
-                last_element -= 1
-        i += 1
-
-    del l[(last_element+1):]
-
-
-class _Layer:
-
-    def __init__(self, layer_id, sprite_type, layer_depth, sort_sprites=True, use_color=True):
-        """
-            layer_id: The string identifier for this layer.
-            sprite_type: The kinds of sprites this layer accepts.
-            layer_depth: The depth of this layer, in relation to other layers in the engine.
-            sort_sprites: Whether the sprites in this layer should be sorted by their depth.
-            use_color: Whether this layer should use the color information in its sprites.
-        """
-        self._layer_id = layer_id
-        self._sprite_type = sprite_type
-        self._layer_depth = layer_depth
-
-        self._sort_sprites = sort_sprites
-        self._use_color = use_color
-
-        self._offset = (0, 0)
-
-    def get_layer_id(self):
-        return self._layer_id
-
-    def set_offset(self, x, y):
-        self._offset = (x, y)
-
-    def get_offset(self):
-        return self._offset
-
-    def is_sorted(self):
-        return self._sort_sprites
-
-    def is_color(self):
-        return self._use_color
-
-    def get_sprite_type(self):
-        return self._sprite_type
-
-    def get_layer_depth(self):
-        return self._layer_depth
-
-    def is_dirty(self):
-        raise NotImplementedError()
-
-    def get_num_sprites(self):
-        raise NotImplementedError()
-
-    def update(self, bundle_id):
-        raise NotImplementedError()
-
-    def remove(self, bundle_id):
-        raise NotImplementedError()
-
-    def rebuild(self, bundle_lookup):
-        raise NotImplementedError()
-
-    def render(self, engine):
-        raise NotImplementedError()
-
-    def __contains__(self, bundle_id):
-        raise NotImplementedError()
-
-    def __len__(self):
-        return self.get_num_sprites()
-
-
-class _ImageLayer(_Layer):
-    """
-        Layer for ImageSprites.
-    """
-    def __init__(self, layer_id, layer_depth, sort_sprites=True, use_color=True):
-        _Layer.__init__(self, layer_id, img.SpriteTypes.IMAGE, layer_depth,
-                        sort_sprites=sort_sprites, use_color=use_color)
-
-        self.images = []  # ordered list of image ids
-        self._image_set = set()
-
-        # these are the pointers the layer passes to gl
-        self.vertices = numpy.array([], dtype=float)
-        self.tex_coords = numpy.array([], dtype=float)
-        self.indices = numpy.array([], dtype=float)
-        self.colors = numpy.array([], dtype=float) if use_color else None
-        
-        self._dirty_sprites = []
-        self._to_remove = []
-        self._to_add = []
-    
-    def update(self, bundle_id):
-        assert_int(bundle_id)
-        if bundle_id in self._image_set:
-            self._dirty_sprites.append(bundle_id)
-        else:
-            self._image_set.add(bundle_id)
-            self._to_add.append(bundle_id)
-        
-    def remove(self, bundle_id):
-        assert_int(bundle_id)
-        if bundle_id in self._image_set:
-            self._image_set.remove(bundle_id)
-            self._to_remove.append(bundle_id)
-        
-    def is_dirty(self):
-        return len(self._dirty_sprites) + len(self._to_add) + len(self._to_remove) > 0
-        
-    def rebuild(self, bundle_lookup): 
-        if len(self._to_remove) > 0:
-            for bun_id in self._to_remove:
-                if bun_id in self._image_set:
-                    self._image_set.remove(bun_id)
-
-            remove_all_in_place(self.images, self._to_remove)
-            remove_all_in_place(self._to_add, self._to_remove)
-            self._to_remove.clear()
-
-        if len(self._to_add) > 0:
-            self.images.extend(self._to_add)
-            self._to_add.clear()
-
-        self._dirty_sprites.clear()
-        
-        if self.is_sorted():
-            self.images.sort(key=lambda x: -bundle_lookup[x].depth())
-
-        n_sprites = len(self.images)
-
-        # need refcheck to be false or else Pycharm's debugger can cause this to fail (due to holding a ref)
-        self.vertices.resize(8 * n_sprites, refcheck=False)
-        self.tex_coords.resize(8 * n_sprites, refcheck=False)
-        self.indices.resize(6 * n_sprites, refcheck=False)
-        if self.is_color():
-            self.colors.resize(4 * 3 * n_sprites, refcheck=False)
-
-        for i in range(0, n_sprites):
-            bundle = bundle_lookup[self.images[i]]
-            bundle.add_urself(
-                    i,
-                    self.vertices, 
-                    self.tex_coords, 
-                    self.colors, 
-                    self.indices)
-            
-    def render(self, engine):
-        # split up like this to make it easier to find performance bottlenecks
-        self._set_client_states(True, engine)
-        self._pass_attributes(engine)
-        self._draw_elements()
-        self._set_client_states(False, engine)
-
-    def _set_client_states(self, enable, engine):
-        engine.set_vertices_enabled(enable)
-        engine.set_texture_coords_enabled(enable)
-        if self.is_color():
-            engine.set_colors_enabled(enable)
-
-    def _pass_attributes(self, engine):
-        engine.set_vertices(self.vertices)
-        engine.set_texture_coords(self.tex_coords)
-        if self.is_color():
-            engine.set_colors(self.colors)
-
-    def _draw_elements(self):
-        glDrawElements(GL_TRIANGLES, len(self.indices), GL_UNSIGNED_INT, self.indices)
-
-    def __contains__(self, uid):
-        return uid in self._image_set
-
-    def num_sprites(self):
-        return len(self.images)
-
 
 def printOpenGLError():
     err = glGetError()
@@ -275,7 +70,7 @@ def get_instance():
 class RenderEngine:
 
     def __init__(self):
-        self.bundles = {}  # (int) id -> bundle
+        self.sprite_lookup = {}  # (int) id -> _Sprite
         self.camera_pos = [0, 0]
         self.size = (0, 0)
         self.min_size = (0, 0)
@@ -289,13 +84,8 @@ class RenderEngine:
 
         self.raw_texture_data = (None, 0, 0)  # data, width, height
         
-    def add_layer(self, layer_id, sprite_type, layer_depth, sort_sprites, use_color):
-        if sprite_type == img.SpriteTypes.IMAGE:
-            l = _ImageLayer(layer_id, layer_depth, sort_sprites=sort_sprites, use_color=use_color)
-        else:
-            raise NotImplementedError()
-
-        self.layers[layer_id] = l
+    def add_layer(self, layer):
+        self.layers[layer.get_layer_id()] = layer
         
         self.ordered_layers = list(self.layers.values())
         self.ordered_layers.sort(key=lambda x: x.get_layer_depth())
@@ -317,14 +107,14 @@ class RenderEngine:
         self.layers[layer_id].set_offset(offs_x, offs_y)
         
     def clear_all_sprites(self):
-        for uid in self.bundles:
+        for uid in self.sprite_lookup:
             for l in self.layers.values():
                 l.remove(uid)
-        self.bundles.clear()
+        self.sprite_lookup.clear()
         
-    def clear_bundles(self, bundles):
-        for bun in bundles:
-            self.remove(bun)
+    def clear_sprites(self, sprites):
+        for spr in sprites:
+            self.remove(spr)
 
     def resize(self, w, h, px_scale=None):
         if px_scale is not None:
@@ -454,30 +244,34 @@ class RenderEngine:
         self.camera_pos[0] = x - (self.size[0] // 2) if center else 0
         self.camera_pos[1] = y - (self.size[1] // 2) if center else 0
         
-    def remove(self, img_bundle):
-        if img_bundle is None:
+    def remove(self, sprite):
+        if sprite is None:
             return
             
-        uid = img_bundle.uid()
-        if uid in self.bundles:
-            del self.bundles[img_bundle.uid()]
+        uid = sprite.uid()
+        if uid in self.sprite_lookup:
+            del self.sprite_lookup[uid]
 
-        self.layers[img_bundle.layer()].remove(uid)
+        self.layers[sprite.layer_id()].remove(uid)
         
-    def update(self, img_bundle):
-        if img_bundle is None:
+    def update(self, sprite):
+        if sprite is None:
             return
 
-        for bun in img_bundle.all_bundles():
-            uid = bun.uid()
-            self.bundles[uid] = bun
+        uid = sprite.uid()
+        self.sprite_lookup[uid] = sprite
 
-            layer = self.layers[bun.layer()]
+        layer = self.layers[sprite.layer_id()]
+
+        if layer.get_sprite_type() == sprite.sprite_type():
             layer.update(uid)
+        else:
+            raise ValueError("Incompatible sprite types: sprite's is {}, and layer's is {}".format(
+                sprite.sprite_type(), layer.get_sprite_type()))
         
     def __contains__(self, key):
         try:
-            return key.uid() in self.bundles
+            return key.uid() in self.sprite_lookup
         except Exception:
             return False
         
@@ -486,7 +280,7 @@ class RenderEngine:
 
         for layer in self.ordered_layers:
             if layer.is_dirty():
-                layer.rebuild(self.bundles)
+                layer.rebuild(self.sprite_lookup)
 
             if layer.get_layer_id() in self.hidden_layers:
                 continue
@@ -507,7 +301,8 @@ class RenderEngine:
         return res
 
 
-# TODO - welp, this doesn't work anymore
+# TODO - this doesn't work anymore. but i might want to fix it sometime
+# TODO - if there's a need to support systems with very old GL versions.
 
 class RenderEngine110(RenderEngine):
 

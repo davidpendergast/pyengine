@@ -210,6 +210,28 @@ class Utils:
                 yield x
 
     @staticmethod
+    def remove_all_from_list_in_place(l, elements):
+        if len(l) == 0:
+            return l
+
+        rem_set = set(elements)
+        last_element = len(l) - 1
+        i = 0
+
+        while i <= last_element:
+            if l[i] in rem_set:
+                while i <= last_element and l[last_element] in rem_set:
+                    last_element -= 1
+                if i > last_element:
+                    break
+                else:
+                    l[i] = l[last_element]
+                    last_element -= 1
+            i += 1
+
+        del l[(last_element + 1):]
+
+    @staticmethod
     def cells_between(p1, p2, include_endpoints=True):
         if p1 == p2:
             return [tuple(p1)] if include_endpoints else []
