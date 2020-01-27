@@ -231,7 +231,8 @@ class ImageModel:
         
     def height(self):
         return self.h
-        
+
+    # TODO - find a way to make this not needed
     def set_sheet_size(self, size):
         self.tx1 = self.x
         self.tx2 = self.x + self.w
