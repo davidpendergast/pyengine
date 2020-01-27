@@ -97,21 +97,17 @@ def init(name_of_game):
     COLOR = True
     SORTS = True
     render_eng.add_layer(
-        DemoJunk.FLOOR_LAYER,
-        "floors", 0,
-        False, COLOR)
+        DemoJunk.FLOOR_LAYER, img.SpriteTypes.IMAGE,
+        0, False, COLOR)
     render_eng.add_layer(
-        DemoJunk.SHADOW_LAYER,
-        "shadow_layer", 5,
-        False, COLOR)
+        DemoJunk.SHADOW_LAYER, img.SpriteTypes.IMAGE,
+        5, False, COLOR)
     render_eng.add_layer(
-        DemoJunk.WALL_LAYER,
-        "walls", 10,
-        False, COLOR)
+        DemoJunk.WALL_LAYER, img.SpriteTypes.IMAGE,
+        10, False, COLOR)
     render_eng.add_layer(
-        DemoJunk.ENTITY_LAYER,
-        "entities", 15,
-        SORTS, COLOR)
+        DemoJunk.ENTITY_LAYER, img.SpriteTypes.IMAGE,
+        15, SORTS, COLOR)
 
     inputs.create_instance()
 

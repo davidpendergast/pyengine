@@ -4,6 +4,8 @@ from OpenGL.GLU import *
 import numpy
 import math
 
+import src.engine.img as img
+
 
 def assert_int(val):
     if not isinstance(val, int):
@@ -40,20 +42,80 @@ def remove_all_in_place(l, elements):
 
 
 class _Layer:
-    def __init__(self, name, layer_id, z_order, sort_sprites, use_color):
+
+    def __init__(self, layer_id, sprite_type, layer_depth, sort_sprites=True, use_color=True):
         """
-            name: str -- used for logging
-            z_order: number -- used to decide layer draw order
-            sort_sprites: bool -- true if layer should sort sprites by depth
-            use_color: bool -- true if layer respects sprites' color value
+            layer_id: The string identifier for this layer.
+            sprite_type: The kinds of sprites this layer accepts.
+            layer_depth: The depth of this layer, in relation to other layers in the engine.
+            sort_sprites: Whether the sprites in this layer should be sorted by their depth.
+            use_color: Whether this layer should use the color information in its sprites.
         """
-        self.name = name
-        self.layer_id = layer_id
+        self._layer_id = layer_id
+        self._sprite_type = sprite_type
+        self._layer_depth = layer_depth
+
+        self._sort_sprites = sort_sprites
+        self._use_color = use_color
+
+        self._offset = (0, 0)
+
+    def get_layer_id(self):
+        return self._layer_id
+
+    def set_offset(self, x, y):
+        self._offset = (x, y)
+
+    def get_offset(self):
+        return self._offset
+
+    def is_sorted(self):
+        return self._sort_sprites
+
+    def is_color(self):
+        return self._use_color
+
+    def get_sprite_type(self):
+        return self._sprite_type
+
+    def get_layer_depth(self):
+        return self._layer_depth
+
+    def is_dirty(self):
+        raise NotImplementedError()
+
+    def get_num_sprites(self):
+        raise NotImplementedError()
+
+    def update(self, bundle_id):
+        raise NotImplementedError()
+
+    def remove(self, bundle_id):
+        raise NotImplementedError()
+
+    def rebuild(self, bundle_lookup):
+        raise NotImplementedError()
+
+    def render(self, engine):
+        raise NotImplementedError()
+
+    def __contains__(self, bundle_id):
+        raise NotImplementedError()
+
+    def __len__(self):
+        return self.get_num_sprites()
+
+
+class _ImageLayer(_Layer):
+    """
+        Layer for ImageSprites.
+    """
+    def __init__(self, layer_id, layer_depth, sort_sprites=True, use_color=True):
+        _Layer.__init__(self, layer_id, img.SpriteTypes.IMAGE, layer_depth,
+                        sort_sprites=sort_sprites, use_color=use_color)
+
         self.images = []  # ordered list of image ids
         self._image_set = set()
-        self._offset = (0, 0)
-        self._z_order = z_order
-        self.sort_sprites = sort_sprites
 
         # these are the pointers the layer passes to gl
         self.vertices = numpy.array([], dtype=float)
@@ -64,12 +126,6 @@ class _Layer:
         self._dirty_sprites = []
         self._to_remove = []
         self._to_add = []
-    
-    def set_offset(self, x, y):
-        self._offset = (x, y)
-
-    def offset(self):
-        return self._offset
     
     def update(self, bundle_id):
         assert_int(bundle_id)
@@ -88,9 +144,6 @@ class _Layer:
     def is_dirty(self):
         return len(self._dirty_sprites) + len(self._to_add) + len(self._to_remove) > 0
         
-    def uses_color(self):
-        return self.colors is not None
-        
     def rebuild(self, bundle_lookup): 
         if len(self._to_remove) > 0:
             for bun_id in self._to_remove:
@@ -107,7 +160,7 @@ class _Layer:
 
         self._dirty_sprites.clear()
         
-        if self.sort_sprites:
+        if self.is_sorted():
             self.images.sort(key=lambda x: -bundle_lookup[x].depth())
 
         n_sprites = len(self.images)
@@ -116,7 +169,7 @@ class _Layer:
         self.vertices.resize(8 * n_sprites, refcheck=False)
         self.tex_coords.resize(8 * n_sprites, refcheck=False)
         self.indices.resize(6 * n_sprites, refcheck=False)
-        if self.uses_color():
+        if self.is_color():
             self.colors.resize(4 * 3 * n_sprites, refcheck=False)
 
         for i in range(0, n_sprites):
@@ -138,26 +191,20 @@ class _Layer:
     def _set_client_states(self, enable, engine):
         engine.set_vertices_enabled(enable)
         engine.set_texture_coords_enabled(enable)
-        if self.uses_color():
+        if self.is_color():
             engine.set_colors_enabled(enable)
 
     def _pass_attributes(self, engine):
         engine.set_vertices(self.vertices)
         engine.set_texture_coords(self.tex_coords)
-        if self.uses_color():
+        if self.is_color():
             engine.set_colors(self.colors)
 
     def _draw_elements(self):
         glDrawElements(GL_TRIANGLES, len(self.indices), GL_UNSIGNED_INT, self.indices)
 
-    def __len__(self):
-        return len(self.images)   
-        
     def __contains__(self, uid):
         return uid in self._image_set
-        
-    def z_order(self):
-        return self._z_order
 
     def num_sprites(self):
         return len(self.images)
@@ -242,18 +289,22 @@ class RenderEngine:
 
         self.raw_texture_data = (None, 0, 0)  # data, width, height
         
-    def add_layer(self, layer_id, layer_name, z_order, sort_sprites, use_color):
-        l = _Layer(layer_name, layer_id, z_order, sort_sprites, use_color)
+    def add_layer(self, layer_id, sprite_type, layer_depth, sort_sprites, use_color):
+        if sprite_type == img.SpriteTypes.IMAGE:
+            l = _ImageLayer(layer_id, layer_depth, sort_sprites=sort_sprites, use_color=use_color)
+        else:
+            raise NotImplementedError()
+
         self.layers[layer_id] = l
         
         self.ordered_layers = list(self.layers.values())
-        self.ordered_layers.sort(key=lambda x: x.z_order())
+        self.ordered_layers.sort(key=lambda x: x.get_layer_depth())
         
     def remove_layer(self, layer_id):
         del self.layers[layer_id]
         
         self.ordered_layers = list(self.layers.values())
-        self.ordered_layers.sort(key=lambda x: x.z_order())
+        self.ordered_layers.sort(key=lambda x: x.get_layer_depth())
 
     def hide_layer(self, layer_id):
         self.hidden_layers[layer_id] = None
@@ -437,10 +488,10 @@ class RenderEngine:
             if layer.is_dirty():
                 layer.rebuild(self.bundles)
 
-            if layer.layer_id in self.hidden_layers:
+            if layer.get_layer_id() in self.hidden_layers:
                 continue
 
-            offs = layer.offset()
+            offs = layer.get_offset()
 
             self.set_matrix_offset(-offs[0], -offs[1])
             

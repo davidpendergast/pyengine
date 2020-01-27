@@ -1,7 +1,3 @@
-from OpenGL.GL import *
-from OpenGL.GLU import *
-
-import random
 
 UNIQUE_ID_CTR = 0
 
@@ -11,6 +7,12 @@ def gen_unique_id():
     global UNIQUE_ID_CTR
     UNIQUE_ID_CTR += 1
     return UNIQUE_ID_CTR - 1
+
+
+class SpriteTypes:
+    IMAGE = "IMAGE"
+    LINE = "LINE"
+    RECT = "RECT"
     
 
 class ImageBundle:
