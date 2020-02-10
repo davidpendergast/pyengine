@@ -180,3 +180,5 @@ class ImageLayer(_Layer):
 
     def num_sprites(self):
         return len(self.images)
+
+

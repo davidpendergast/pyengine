@@ -9,11 +9,12 @@ It sidesteps most of pygame's rendering API to interface directly with PyOpenGL 
 Instead, you load or create a massive spritesheet that contains all the sprites you'll ever need, bind it to the GPU, and work solely with those for the entire game. You create a fixed number of "sprite layers", fill them with "sprite objects" (AKA sub-rectangles of the original sheet), update their positions, sizes, etc., and then render each layer to the screen with a single draw call. In exchange for flexibily, you get speed. That's the idea anyways.
 
 Some key features:
- - Quick and easy OpenGL setup, that supports on-the-fly pixel scale adjustment (renderengine.py).
+ - Quick and easy OpenGL setup, that supports on-the-fly pixel scale readjustment (renderengine.py).
  - A layer-based sprite rendering system (renderengine.py, layers.py, sprites.py).
  - Easier window creation, resizing, and fullscreen management (window.py).
  - Some helpful methods involving music & sounds (music.py + sounds.py). 
  - A more convenient way to handle keyboard + mouse inputs (inputs.py).
+ - Automatic crash reporting (entry_point.py)
  
 And there's a demo scene to help illustrate the setup (gameloop.py). 
 

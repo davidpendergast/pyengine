@@ -45,13 +45,13 @@ class WindowState:
         else:
             new_size = self._window_size
 
-        pygame.display.set_mode(new_size, self._get_mods())
+        new_surface = pygame.display.set_mode(new_size, self._get_mods())
 
         import src.engine.renderengine as renderengine
         render_eng = renderengine.get_instance()
         if render_eng is not None:
             # XXX otherwise everything breaks on Windows (see docs on this method)
-            render_eng.reset_for_display_mode_change()
+            render_eng.reset_for_display_mode_change(new_surface)
 
     def set_caption(self, title):
         pygame.display.set_caption(title)

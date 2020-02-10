@@ -3,6 +3,8 @@ from OpenGL.GLU import *
 
 import numpy
 import math
+import re
+import traceback
 
 
 def printOpenGLError():
@@ -56,7 +58,15 @@ def create_instance():
     """intializes the RenderEngine singleton."""
     global _SINGLETON
     if _SINGLETON is None:
-        _SINGLETON = RenderEngine130()
+        vstring = glGetString(GL_VERSION)
+        vstring = vstring.decode() if vstring is not None else None
+        print("INFO: running OpenGL version: {}".format(vstring))
+
+        glsl_version = glGetString(GL_SHADING_LANGUAGE_VERSION)
+        glsl_version = glsl_version.decode() if glsl_version is not None else None
+        print("INFO: with shading language version: {}".format(glsl_version))
+
+        _SINGLETON = _get_best_render_engine(glsl_version)
         return _SINGLETON
     else:
         raise ValueError("There is already a RenderEngine initialized.")
@@ -65,6 +75,30 @@ def create_instance():
 def get_instance():
     """after init is called, returns the RenderEngine singleton."""
     return _SINGLETON
+
+
+def _get_best_render_engine(glsl_version):
+    major_vers = 1
+    minor_vers = 0
+
+    try:
+        # it's formatted like "##.##.## <Anything>", so we split on periods and spaces
+        chunks = re.split("[. ]", glsl_version)
+        chunks = [c for c in chunks if len(c) > 0]
+
+        if len(chunks) >= 1:
+            major_vers = int(chunks[0])
+        if len(chunks) >= 2:
+            minor_vers = int(chunks[1])
+
+    except Exception:
+        print("ERROR: failed to parse glsl_version: {}".format(glsl_version))
+        traceback.print_exc()
+
+    if major_vers <= 1 and minor_vers < 30:
+        return RenderEngine120()
+    else:
+        return RenderEngine130()
 
 
 class RenderEngine:
@@ -83,6 +117,8 @@ class RenderEngine:
         self.tex_id = None
 
         self.raw_texture_data = (None, 0, 0)  # data, width, height
+
+        self._surface = None  # only storing this for (rare, hopefully) pygame-style draw calls
         
     def add_layer(self, layer):
         self.layers[layer.get_layer_id()] = layer
@@ -189,10 +225,6 @@ class RenderEngine:
     def init(self, w, h):
         glShadeModel(GL_FLAT)
         glClearColor(0.5, 0.5, 0.5, 0.0)
-        
-        vstring = glGetString(GL_VERSION)
-        vstring = vstring.decode() if vstring is not None else None
-        print("INFO: running OpenGL version: {}".format(vstring))
 
         print("INFO: building shader for GLSL version: {}".format(self.get_glsl_version()))
         self.shader = self.build_shader()
@@ -201,7 +233,7 @@ class RenderEngine:
 
         self.resize(w, h)
 
-    def reset_for_display_mode_change(self):
+    def reset_for_display_mode_change(self, new_surface):
         """
            XXX on Windows, when pygame.display.set_mode is called, it seems to wipe away the active
            gl context, so we get around that by rebuilding the shader program and rebinding the texture...
@@ -215,6 +247,8 @@ class RenderEngine:
         img_data, w, h = self.raw_texture_data
         if img_data is not None:
             self.set_texture(img_data, w, h, tex_id=self.tex_id)
+
+        self._surface = new_surface
 
     def set_texture(self, img_data, width, height, tex_id=None):
         """
@@ -597,3 +631,57 @@ class RenderEngine130(RenderEngine):
     def set_colors(self, data):
         glVertexAttribPointer(self._color_attrib_loc, 3, GL_FLOAT, GL_FALSE, 0, data)
         printOpenGLError()
+
+
+class RenderEngine120(RenderEngine130):
+
+    def get_glsl_version(self):
+        return "120"
+
+    def build_shader(self):
+        return Shader(
+            '''
+            # version 130
+            in vec2 position;
+
+            uniform mat4 modelview;
+            uniform mat4 proj;
+
+            in vec2 vTexCoord;
+            out vec2 texCoord;
+
+            in vec3 vColor;
+            out vec3 color;
+
+            void main()
+            {
+                texCoord = vTexCoord;
+                color = vColor;
+                gl_Position = proj * modelview * vec4(position.x, position.y, 0.0, 1.0);
+            }
+            ''',
+            '''
+            #version 130
+            in vec2 texCoord;
+            in vec3 color;
+
+            uniform vec2 texSize;
+            uniform sampler2D tex0;
+
+            void main(void) {
+                vec2 texPos = vec2(texCoord.x / texSize.x, texCoord.y / texSize.y);
+                vec4 tcolor = texture2D(tex0, texPos);
+
+                for (int i = 0; i < 3; i++) {
+                    if (tcolor[i] >= 0.99) {
+                        gl_FragColor[i] = tcolor[i] * color[i];
+                    } else {
+                        gl_FragColor[i] = tcolor[i] * color[i] * color[i];                    
+                    }
+                }
+
+                gl_FragColor.w = tcolor.w;
+            }
+            '''
+        )
+

@@ -1,3 +1,6 @@
+import pygame
+import src.utils.util as util
+
 
 UNIQUE_ID_CTR = 0
 
@@ -33,6 +36,64 @@ class _Sprite:
 
     def __repr__(self):
         return "_Sprite({}, {}, {})".format(self.sprite_type(), self.layer_id(), self.uid())
+
+
+class LineSprite(_Sprite):
+
+    def __init__(self, layer_id, p1=None, p2=None, thickness=1, color=(1, 1, 1), depth=1, uid=None):
+        super().__init__(self, SpriteTypes.LINE, layer_id, uid=uid)
+        self._p1 = p1
+        self._p2 = p2
+        self._color = color
+        self._depth = depth
+        self._thickness = thickness
+
+    def update(self, new_p1=None, new_p2=None, new_thickness=None, new_color=None, new_depth=None):
+        p1 = self._p1 if new_p1 is None else new_p1
+        p2 = self._p2 if new_p2 is None else new_p2
+        thickness = self._thickness if new_thickness is None else new_thickness
+        color = self._color if new_color is None else new_color
+        depth = self._depth if new_depth is None else new_depth
+
+        if (p1 == self._p1 and
+                p2 == self._p2 and
+                thickness == self._thickness and
+                color == self._color and
+                depth == self._depth):
+            return self
+        else:
+            return LineSprite(self.layer_id(), p1=p1, p2=p2, thickness=thickness,
+                              color=color, depth=depth, uid=self.uid())
+
+    def p1(self):
+        return self._p1
+
+    def p2(self):
+        return self._p2
+
+    def color(self):
+        return self._color
+
+    def thickness(self):
+        return self._thickness
+
+    def draw_yourself(self, surface, offset=(0, 0), scale=1):
+        xy1 = self.p1()
+        xy2 = self.p2()
+        if xy1 is None or xy2 is None:
+            return
+
+        x1 = scale * (xy1[0] + offset[0])
+        y1 = scale * (xy1[1] + offset[1])
+        x2 = scale * (xy2[0] + offset[0])
+        y2 = scale * (xy2[1] + offset[1])
+
+        color = self.color()
+        r = util.Utils.bound(int(color[0] * 256), 0, 255)
+        g = util.Utils.bound(int(color[1] * 256), 0, 255)
+        b = util.Utils.bound(int(color[2] * 256), 0, 255)
+
+        pygame.draw.line(surface, (r, g, b), (x1, y1), (x2, y2), self.thickness())
     
 
 class ImageSprite(_Sprite):
@@ -52,8 +113,6 @@ class ImageSprite(_Sprite):
         self._rotation = rotation
         self._color = color
         self._ratio = ratio
-
-        self._is_destroyed = False
             
     def update(self, new_model=None, new_x=None, new_y=None, new_scale=None, new_depth=None,
                new_xflip=None, new_color=None, new_rotation=None, new_ratio=None):
@@ -81,7 +140,6 @@ class ImageSprite(_Sprite):
         else:
             res = ImageSprite(model, x, y, self.layer_id(), scale=scale, depth=depth, xflip=xflip, rotation=rotation,
                               color=color, ratio=ratio, uid=self.uid())
-            res._is_destroyed = self._is_destroyed
             return res
         
     def model(self):
@@ -130,12 +188,6 @@ class ImageSprite(_Sprite):
 
     def ratio(self):
         return self._ratio
-
-    def mark_for_removal(self):
-        self._is_destroyed = True
-
-    def is_destroyed(self):
-        return self._is_destroyed
         
     def add_urself(self, i, vertices, texts, colors, indices):
         """
