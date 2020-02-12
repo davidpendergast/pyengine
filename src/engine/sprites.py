@@ -256,21 +256,28 @@ class ImageSprite(_Sprite):
                 self.scale(), self.depth(), self.xflip(), self.color(), self.ratio(), self.uid())
 
 
+_CURRENT_ATLAS_SIZE = None  # XXX this is a mega hack, just look away please
+
+
 class ImageModel:
 
-    def __init__(self, x, y, w, h):
+    def __init__(self, x, y, w, h, offset=(0, 0), texture_size=None):
         # sheet coords, origin top left corner
-        self.x = x  
-        self.y = y
+        self.x = x + offset[0]
+        self.y = y + offset[1]
         self.w = w
         self.h = h
-        self._rect = (x, y, w, h)
-        
+        self._rect = (self.x, self.y, self.w, self.h)
+
+        tex_size = texture_size if texture_size is not None else _CURRENT_ATLAS_SIZE
+        if tex_size is None:
+            raise ValueError("can't construct an ImageModel without a texture size")
+
         # texture coords, origin bottom left corner
-        self.tx1 = 0
-        self.ty1 = 0
-        self.tx2 = 0
-        self.ty2 = 0
+        self.tx1 = self.x
+        self.ty1 = tex_size[1] - (self.y + self.h)
+        self.tx2 = self.x + self.w
+        self.ty2 = tex_size[1] - self.y
         
     def rect(self):
         return self._rect
@@ -283,13 +290,6 @@ class ImageModel:
         
     def height(self):
         return self.h
-
-    # TODO - find a way to make this not needed
-    def set_sheet_size(self, size):
-        self.tx1 = self.x
-        self.tx2 = self.x + self.w
-        self.ty1 = size[1] - (self.y + self.h)
-        self.ty2 = size[1] - self.y
         
     def __repr__(self):
         return "ImageModel({}, {}, {}, {})".format(self.x, self.y, self.w, self.h)

@@ -8,6 +8,7 @@ import src.engine.inputs as inputs
 import src.engine.sprites as sprites
 import src.engine.renderengine as renderengine
 import src.engine.layers as layers
+import src.engine.spritesheets as spritesheets
 
 DEFAULT_SCREEN_SIZE = (800, 600)
 MINIMUM_SCREEN_SIZE = (800, 600)
@@ -31,16 +32,6 @@ class DemoJunk:
     camera_xy = (0, 0)
     cell_size = 32
 
-    player_models = [sprites.ImageModel(0 + 16 * i, 0, 16, 32) for i in range(0, 2)]
-    tv_models = [sprites.ImageModel(32 + 16 * i, 0, 16, 32) for i in range(0, 2)]
-    floor_model = sprites.ImageModel(64, 16, 16, 16)
-    wall_model = sprites.ImageModel(80, 16, 16, 16)
-    shadow_model = sprites.ImageModel(64, 0, 16, 16)
-
-    all_models = [floor_model, wall_model, shadow_model]
-    all_models.extend(player_models)
-    all_models.extend(tv_models)
-
     floor_positions = [(0, 1), (1, 1), (2, 1), (0, 2), (1, 2), (2, 2)]
     floor_sprites = []
 
@@ -63,6 +54,35 @@ class DemoJunk:
         for spr in DemoJunk.shadow_sprites:
             yield spr
 
+    class DemoSheet(spritesheets.SpriteSheet):
+
+        def __init__(self):
+            spritesheets.SpriteSheet.__init__(self, "demo_sheet", "assets/assets.png")
+
+            self.player_models = []
+            self.tv_models = []
+            self.floor_model = None
+            self.wall_model = None
+            self.shadow_model = None
+
+            self.all_models = []
+
+        def draw_to_atlas(self, atlas, sheet, start_pos=(0, 0)):
+            super().draw_to_atlas(atlas, sheet, start_pos=start_pos)
+
+            self.player_models = [sprites.ImageModel(0 + 16 * i, 0, 16, 32, offset=start_pos) for i in range(0, 2)]
+            self.tv_models = [sprites.ImageModel(32 + 16 * i, 0, 16, 32, offset=start_pos) for i in range(0, 2)]
+            self.floor_model = sprites.ImageModel(64, 16, 16, 16, offset=start_pos)
+            self.wall_model = sprites.ImageModel(80, 16, 16, 16, offset=start_pos)
+            self.shadow_model = sprites.ImageModel(64, 0, 16, 16, offset=start_pos)
+
+            self.all_models = [self.floor_model, self.wall_model, self.shadow_model]
+            self.all_models.extend(self.player_models)
+            self.all_models.extend(self.tv_models)
+
+    demo_sheet = DemoSheet()
+    font_sheet = spritesheets.DefaultFont()
+
 
 def init(name_of_game):
     print("INFO: pygame version: " + pygame.version.ver)
@@ -84,16 +104,16 @@ def init(name_of_game):
     render_eng.set_min_size(*MINIMUM_SCREEN_SIZE)
 
     # REPLACE with a call to a function that builds the real assets surface
-    asset_sheet = pygame.image.load(Utils.resource_path("assets/assets.png"))
+    sprite_atlas = spritesheets.SpriteAtlas()
+    sprite_atlas.add_sheet(DemoJunk.demo_sheet)
+    sprite_atlas.add_sheet(DemoJunk.font_sheet)
 
-    texture_data = pygame.image.tostring(asset_sheet, "RGBA", 1)
-    width = asset_sheet.get_width()
-    height = asset_sheet.get_height()
+    atlas_surface = sprite_atlas.create_atlas_surface()
+
+    texture_data = pygame.image.tostring(atlas_surface, "RGBA", 1)
+    width = atlas_surface.get_width()
+    height = atlas_surface.get_height()
     render_eng.set_texture(texture_data, width, height)
-
-    # sprites will be upside down if this isn't done... sorry
-    for spr in DemoJunk.all_models:
-        spr.set_sheet_size((width, height))
 
     # REPLACE with whatever layers you need
     COLOR = True
@@ -266,7 +286,7 @@ def update_crappy_demo_scene():
 
     if len(DemoJunk.wall_sprites) == 0:
         for pos in DemoJunk.wall_positions:
-            new_sprite = sprites.ImageSprite(DemoJunk.wall_model,
+            new_sprite = sprites.ImageSprite(DemoJunk.demo_sheet.wall_model,
                                              pos[0] * DemoJunk.cell_size,
                                              pos[1] * DemoJunk.cell_size,
                                              DemoJunk.WALL_LAYER, scale=2)
@@ -274,7 +294,7 @@ def update_crappy_demo_scene():
 
     if len(DemoJunk.floor_sprites) == 0:
         for pos in DemoJunk.floor_positions:
-            new_sprite = sprites.ImageSprite(DemoJunk.floor_model,
+            new_sprite = sprites.ImageSprite(DemoJunk.demo_sheet.floor_model,
                                              pos[0] * DemoJunk.cell_size,
                                              pos[1] * DemoJunk.cell_size,
                                              DemoJunk.FLOOR_LAYER, scale=2)
@@ -282,7 +302,7 @@ def update_crappy_demo_scene():
 
     if len(DemoJunk.shadow_sprites) == 0:
         for _ in DemoJunk.entity_sprites:
-            DemoJunk.shadow_sprites.append(sprites.ImageSprite(DemoJunk.shadow_model, 0, 0,
+            DemoJunk.shadow_sprites.append(sprites.ImageSprite(DemoJunk.demo_sheet.shadow_model, 0, 0,
                                                                DemoJunk.SHADOW_LAYER, scale=1))
 
     anim_tick = DemoJunk.tick_count // 16
@@ -308,7 +328,7 @@ def update_crappy_demo_scene():
     player_y = max(new_y, int(1.1 * DemoJunk.cell_size))  # collision with walls~
 
     DemoJunk.entity_positions[0] = (player_x, player_y)
-    new_model = DemoJunk.player_models[anim_tick % len(DemoJunk.player_models)]
+    new_model = DemoJunk.demo_sheet.player_models[anim_tick % len(DemoJunk.demo_sheet.player_models)]
     player_sprite = DemoJunk.entity_sprites[0]
     player_scale = player_sprite.scale()
     DemoJunk.entity_sprites[0] = player_sprite.update(new_model=new_model,
@@ -316,7 +336,7 @@ def update_crappy_demo_scene():
                                                       new_y=player_y - new_model.height() * player_scale,
                                                       new_xflip=new_xflip, new_depth=-player_y)
 
-    tv_model = DemoJunk.tv_models[(anim_tick // 2) % len(DemoJunk.tv_models)]
+    tv_model = DemoJunk.demo_sheet.tv_models[(anim_tick // 2) % len(DemoJunk.demo_sheet.tv_models)]
     tv_x = DemoJunk.entity_positions[1][0]
     tv_y = DemoJunk.entity_positions[1][1]
     tv_xflip = player_x > tv_x  # turn to face player
@@ -331,7 +351,7 @@ def update_crappy_demo_scene():
     for i in range(0, len(DemoJunk.entity_positions)):
         xy = DemoJunk.entity_positions[i]
         shadow_sprite = DemoJunk.shadow_sprites[i]
-        shadow_model = DemoJunk.shadow_model
+        shadow_model = DemoJunk.demo_sheet.shadow_model
         shadow_x = xy[0] - shadow_sprite.scale() * shadow_model.width() // 2
         shadow_y = xy[1] - shadow_sprite.scale() * shadow_model.height() // 2
         DemoJunk.shadow_sprites[i] = shadow_sprite.update(new_model=shadow_model,

@@ -159,6 +159,90 @@ class Utils:
             return [min_x, min_y, (max_x - min_x), (max_y - min_y)]
 
     @staticmethod
+    def _new_bound_size(existing_rects, new_rect):
+        min_x = new_rect[0]
+        max_x = new_rect[0] + new_rect[2]
+        min_y = new_rect[1]
+        max_y = new_rect[1] + new_rect[3]
+        for r in existing_rects:
+            if Utils.get_rect_intersect(r, new_rect) is not None:
+                return None
+            else:
+                min_x = min(min_x, r[0])
+                max_x = max(max_x, r[0] + r[2])
+                min_y = min(min_y, r[1])
+                max_y = max(max_y, r[1] + r[3])
+
+        return (max_x - min_x, max_y - min_y)
+
+    @staticmethod
+    def _get_new_roots(existing_rects, new_rect):
+        res = [(new_rect[0], new_rect[1] + new_rect[3]),    # bottom left
+               (new_rect[0] + new_rect[2], new_rect[1])]    # top right
+        for r in existing_rects:
+            if new_rect[0] < r[0] + r[2] < new_rect[0] + new_rect[2]:
+                if r[1] < new_rect[1]:
+                    res.append((new_rect[0] + new_rect[2], r[1]))
+                else:
+                    res.append((r[0] + r[2], new_rect[1]))
+            if new_rect[1] < r[1] + r[3] < new_rect[3]:
+                if r[0] < new_rect[0]:
+                    res.append((r[0], new_rect[1] + new_rect[3]))
+                else:
+                    res.append((new_rect[0] + new_rect[2], r[1] + r[3]))
+        return res
+
+
+    @staticmethod
+    def pack_rects_into_smallest_rect(rect_sizes):
+        """
+        Note that this is very O(n^2)
+        :param rect_sizes: list of non-empty sizes (w, h)
+        :return: (
+                    list of rects (x, y, w, h) that are packed into a "minimal" bounding rect,
+                    (w, h) the total bound size
+                 )
+        """
+        sizes = [r for r in rect_sizes]
+        sizes.sort(key=lambda s: s[0] * s[1], reverse=True)
+
+        roots = set()
+        roots.add((0, 0))
+
+        total_bound = (0, 0)
+
+        res = []
+
+        for s in sizes:
+            if s[0] <= 0 or s[1] <= 0:
+                raise ValueError("invalid rect size: {}".format(s))
+            else:
+                best_root = None
+                best_new_bound = None
+
+                for root in roots:
+                    candidate_rect = [root[0], root[1], s[0], s[1]]
+                    new_bound = Utils._new_bound_size(res, candidate_rect)
+                    if new_bound is not None:  # it fits
+                        if best_new_bound is None or new_bound[0] * new_bound[1] < best_new_bound[0] * best_new_bound[1]:
+                            best_new_bound = new_bound
+                            best_root = root
+
+                if best_root is None:
+                    # only possible if i messed this up
+                    raise ValueError("can't fit {} in any roots: {}".format(s, roots))
+                else:
+                    new_rect = [best_root[0], best_root[1], s[0], s[1]]
+                    new_roots = Utils._get_new_roots(res, new_rect)
+                    for root in new_roots:
+                        roots.add(root)
+                    roots.remove(best_root)
+                    res.append(new_rect)
+                    total_bound = best_new_bound
+
+        return res, total_bound
+
+    @staticmethod
     def linear_interp(v1, v2, a):
         if isinstance(v1, numbers.Number):
             return v1 * (1 - a) + v2 * a
@@ -492,3 +576,25 @@ class Utils:
                 raise ValueError("blob has illegal type: {}".format(blob))
             else:
                 return Utils.string_checksum(str(blob), m=m)
+
+
+if __name__ == "__main__":
+    sizes = [(5, 5), (2, 3), (7, 2), (1, 5), (9, 4), (3, 16), (3, 3), (3, 4)]
+    packed, bound = Utils.pack_rects_into_smallest_rect(sizes)
+    print("sizes={}".format(sizes))
+    print("packed into {}: ={}".format(bound, packed))
+
+    for y in range(0, bound[1]):
+        line = []
+        for x in range(0, bound[0]):
+            c = " -"
+            for i in range(0, len(packed)):
+                if Utils.rect_contains(packed[i], (x, y)):
+                    if c == " -":
+                        c = str(i) if i > 9 else "0" + str(i)
+                    else:
+                        c = "XX"
+            line.append(c)
+        print(" ".join(line))
+
+
