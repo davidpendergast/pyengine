@@ -20,6 +20,9 @@ class DemoJunk:
     SHADOW_LAYER = "SHADOWS"
     WALL_LAYER = "WALLS"
     ENTITY_LAYER = "ENTITIES"
+    POLYGON_LAYER = "POLYGONS"
+
+    world_layer_ids = [ENTITY_LAYER, SHADOW_LAYER, WALL_LAYER, FLOOR_LAYER, POLYGON_LAYER]
 
     tick_count = 0
     px_scale = -1
@@ -43,6 +46,13 @@ class DemoJunk:
 
     shadow_sprites = []
 
+    triangle_center = (-32, 12)
+    triangle_length = 20
+    triangle_angle = 0
+    triangle_color = (0, 0, 0)
+
+    triangle_sprite = None
+
     @staticmethod
     def all_sprites():
         for spr in DemoJunk.floor_sprites:
@@ -53,6 +63,8 @@ class DemoJunk:
             yield spr
         for spr in DemoJunk.shadow_sprites:
             yield spr
+        if DemoJunk.triangle_sprite is not None:
+            yield DemoJunk.triangle_sprite
 
     class DemoSheet(spritesheets.SpriteSheet):
 
@@ -81,7 +93,6 @@ class DemoJunk:
             self.all_models.extend(self.tv_models)
 
     demo_sheet = DemoSheet()
-    font_sheet = spritesheets.DefaultFont()
 
 
 def init(name_of_game):
@@ -104,9 +115,8 @@ def init(name_of_game):
     render_eng.set_min_size(*MINIMUM_SCREEN_SIZE)
 
     # REPLACE with a call to a function that builds the real assets surface
-    sprite_atlas = spritesheets.SpriteAtlas()
+    sprite_atlas = spritesheets.create_instance()
     sprite_atlas.add_sheet(DemoJunk.demo_sheet)
-    sprite_atlas.add_sheet(DemoJunk.font_sheet)
 
     atlas_surface = sprite_atlas.create_atlas_surface()
 
@@ -121,6 +131,7 @@ def init(name_of_game):
     render_eng.add_layer(layers.ImageLayer(DemoJunk.FLOOR_LAYER, 0, False, COLOR))
     render_eng.add_layer(layers.ImageLayer(DemoJunk.SHADOW_LAYER, 5, False, COLOR))
     render_eng.add_layer(layers.ImageLayer(DemoJunk.WALL_LAYER, 10, False, COLOR))
+    render_eng.add_layer(layers.PolygonLayer(DemoJunk.POLYGON_LAYER, 12, SORTS))
     render_eng.add_layer(layers.ImageLayer(DemoJunk.ENTITY_LAYER, 15, SORTS, COLOR))
 
     inputs.create_instance()
@@ -305,6 +316,10 @@ def update_crappy_demo_scene():
             DemoJunk.shadow_sprites.append(sprites.ImageSprite(DemoJunk.demo_sheet.shadow_model, 0, 0,
                                                                DemoJunk.SHADOW_LAYER, scale=1))
 
+    if DemoJunk.triangle_sprite is None:
+        DemoJunk.triangle_sprite = sprites.TriangleSprite(((0, 0), (10, 0), (0, 10)),
+                                                          DemoJunk.POLYGON_LAYER, color=(0, 0, 0))
+
     anim_tick = DemoJunk.tick_count // 16
 
     speed = 2
@@ -357,6 +372,27 @@ def update_crappy_demo_scene():
         DemoJunk.shadow_sprites[i] = shadow_sprite.update(new_model=shadow_model,
                                                           new_x=shadow_x, new_y=shadow_y)
 
+    if DemoJunk.triangle_sprite is not None:
+        tri_center = DemoJunk.triangle_center
+        tri_angle = DemoJunk.triangle_angle * 2 * 3.141529 / 360
+        tri_length = DemoJunk.triangle_length
+
+        p1 = Utils.add(tri_center, Utils.rotate((tri_length, 0), tri_angle))
+        p2 = Utils.add(tri_center, Utils.rotate((tri_length, 0), tri_angle + 3.141529 * 2 / 3))
+        p3 = Utils.add(tri_center, Utils.rotate((tri_length, 0), tri_angle + 3.141529 * 4 / 3))
+
+        DemoJunk.triangle_sprite = DemoJunk.triangle_sprite.update(new_points=(p1, p2, p3))
+
+        player_dist = Utils.dist(DemoJunk.entity_positions[0], tri_center)
+        min_speed = 0.3
+        max_speed = 4
+        if player_dist > 100:
+            rotation_speed = min_speed
+        else:
+            rotation_speed = Utils.linear_interp(min_speed, max_speed, (100 - player_dist) / 100)
+
+        DemoJunk.triangle_angle += rotation_speed
+
     # publishing new sprites to render engine
     for spr in DemoJunk.all_sprites():
         renderengine.get_instance().update(spr)
@@ -364,5 +400,5 @@ def update_crappy_demo_scene():
     # setting layer positions
     camera_x = player_x - renderengine.get_instance().get_game_size()[0] // 2
     camera_y = player_y - renderengine.get_instance().get_game_size()[1] // 2
-    for layer_id in [DemoJunk.ENTITY_LAYER, DemoJunk.SHADOW_LAYER, DemoJunk.WALL_LAYER, DemoJunk.FLOOR_LAYER]:
+    for layer_id in DemoJunk.world_layer_ids:
         renderengine.get_instance().set_layer_offset(layer_id, camera_x, camera_y)

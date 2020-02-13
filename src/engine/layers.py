@@ -1,5 +1,4 @@
 from OpenGL.GL import *
-from OpenGL.GLU import *
 
 import numpy
 
@@ -14,16 +13,14 @@ def assert_int(val):
 
 class _Layer:
 
-    def __init__(self, layer_id, sprite_type, layer_depth, sort_sprites=True, use_color=True):
+    def __init__(self, layer_id, layer_depth, sort_sprites=True, use_color=True):
         """
             layer_id: The string identifier for this layer.
-            sprite_type: The kinds of sprites this layer accepts.
             layer_depth: The depth of this layer, in relation to other layers in the engine.
             sort_sprites: Whether the sprites in this layer should be sorted by their depth.
             use_color: Whether this layer should use the color information in its sprites.
         """
         self._layer_id = layer_id
-        self._sprite_type = sprite_type
         self._layer_depth = layer_depth
 
         self._sort_sprites = sort_sprites
@@ -46,8 +43,20 @@ class _Layer:
     def is_color(self):
         return self._use_color
 
-    def get_sprite_type(self):
-        return self._sprite_type
+    def accepts_sprite_type(self, sprite_type):
+        return False
+
+    def vertex_stride(self):
+        raise NotImplementedError()
+
+    def texture_stride(self):
+        raise NotImplementedError()
+
+    def index_stride(self):
+        raise NotImplementedError()
+
+    def color_stride(self):
+        raise NotImplementedError()
 
     def get_layer_depth(self):
         return self._layer_depth
@@ -83,8 +92,7 @@ class ImageLayer(_Layer):
     """
 
     def __init__(self, layer_id, layer_depth, sort_sprites=True, use_color=True):
-        _Layer.__init__(self, layer_id, sprites.SpriteTypes.IMAGE, layer_depth,
-                        sort_sprites=sort_sprites, use_color=use_color)
+        _Layer.__init__(self, layer_id, layer_depth, sort_sprites=sort_sprites, use_color=use_color)
 
         self.images = []  # ordered list of image ids
         self._image_set = set()
@@ -116,6 +124,21 @@ class ImageLayer(_Layer):
     def is_dirty(self):
         return len(self._dirty_sprites) + len(self._to_add) + len(self._to_remove) > 0
 
+    def accepts_sprite_type(self, sprite_type):
+        return sprite_type == sprites.SpriteTypes.IMAGE
+
+    def vertex_stride(self):
+        return 8
+
+    def texture_stride(self):
+        return 8
+
+    def index_stride(self):
+        return 6
+
+    def color_stride(self):
+        return 4 * 3
+
     def rebuild(self, sprite_lookup):
         if len(self._to_remove) > 0:
             for sprite_id in self._to_remove:
@@ -138,11 +161,11 @@ class ImageLayer(_Layer):
         n_sprites = len(self.images)
 
         # need refcheck to be false or else Pycharm's debugger can cause this to fail (due to holding a ref)
-        self.vertices.resize(8 * n_sprites, refcheck=False)
-        self.tex_coords.resize(8 * n_sprites, refcheck=False)
-        self.indices.resize(6 * n_sprites, refcheck=False)
+        self.vertices.resize(self.vertex_stride() * n_sprites, refcheck=False)
+        self.tex_coords.resize(self.texture_stride() * n_sprites, refcheck=False)
+        self.indices.resize(self.index_stride() * n_sprites, refcheck=False)
         if self.is_color():
-            self.colors.resize(4 * 3 * n_sprites, refcheck=False)
+            self.colors.resize(self.color_stride() * n_sprites, refcheck=False)
 
         for i in range(0, n_sprites):
             sprite = sprite_lookup[self.images[i]]
@@ -178,7 +201,30 @@ class ImageLayer(_Layer):
     def __contains__(self, uid):
         return uid in self._image_set
 
-    def num_sprites(self):
+    def get_num_sprites(self):
         return len(self.images)
+
+
+class PolygonLayer(ImageLayer):
+
+    def __init__(self, layer_id, layer_depth, sort_sprites=True):
+        ImageLayer.__init__(self, layer_id, layer_depth, sort_sprites=sort_sprites, use_color=True)
+
+    def accepts_sprite_type(self, sprite_type):
+        return sprite_type == sprites.SpriteTypes.TRIANGLE
+
+    def vertex_stride(self):
+        return 6
+
+    def texture_stride(self):
+        return 6
+
+    def index_stride(self):
+        return 3
+
+    def color_stride(self):
+        return 3 * 3
+
+
 
 

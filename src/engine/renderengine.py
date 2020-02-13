@@ -297,7 +297,7 @@ class RenderEngine:
 
         layer = self.layers[sprite.layer_id()]
 
-        if layer.get_sprite_type() == sprite.sprite_type():
+        if layer.accepts_sprite_type(sprite.sprite_type()):
             layer.update(uid)
         else:
             raise ValueError("Incompatible sprite types: sprite's is {}, and layer's is {}".format(
@@ -331,97 +331,8 @@ class RenderEngine:
     def count_sprites(self):
         res = 0
         for layer in self.layers.values():
-            res += layer.num_sprites()
+            res += layer.get_num_sprites()
         return res
-
-
-# TODO - this doesn't work anymore. but i might want to fix it sometime
-# TODO - if there's a need to support systems with very old GL versions.
-
-class RenderEngine110(RenderEngine):
-
-    def __init__(self):
-        super().__init__()
-
-    def get_glsl_version(self):
-        return "110"
-
-    def build_shader(self):
-        return Shader(
-            '''
-            #version 110
-            varying vec2 vTexCoord;
-
-            void main() {
-                vTexCoord = gl_MultiTexCoord0.st;
-                gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-                gl_FrontColor = gl_Color;
-            }
-            ''',
-            '''
-            #version 110
-            uniform sampler2D tex0;
-
-            varying vec2 vTexCoord;
-
-            void main() {
-                vec4 tcolor = texture2D(tex0, vTexCoord);
-                for (int i = 0; i < 3; i++) {
-                    if (tcolor[i] >= 0.99) {
-                        gl_FragColor[i] = tcolor[i] * gl_Color[i];
-                    } else {
-                        gl_FragColor[i] = tcolor[i] * gl_Color[i] * gl_Color[i];                    
-                    }
-                }
-                gl_FragColor.w = tcolor.w * gl_Color.w;
-                
-            }
-            ''')
-
-    def set_vertices_enabled(self, val):
-        if val:
-            glEnableClientState(GL_VERTEX_ARRAY)
-        else:
-            glDisableClientState(GL_VERTEX_ARRAY)
-
-    def set_vertices(self, data):
-        glVertexPointer(2, GL_FLOAT, 0, data)
-
-    def set_texture_coords_enabled(self, val):
-        if val:
-            glEnableClientState(GL_TEXTURE_COORD_ARRAY)
-        else:
-            glDisableClientState(GL_TEXTURE_COORD_ARRAY)
-
-    def set_texture_coords(self, data):
-        glTexCoordPointer(2, GL_FLOAT, 0, data)
-
-    def set_colors_enabled(self, val):
-        if val:
-            glEnableClientState(GL_COLOR_ARRAY)
-        else:
-            glDisableClientState(GL_COLOR_ARRAY)
-
-    def set_colors(self, data):
-        glColorPointer(3, GL_FLOAT, 0, data)
-
-    def setup_shader(self):
-        glUniform1i(glGetUniformLocation(self.get_shader().get_program(), "tex0"), 0)
-
-    def set_matrix_offset(self, x, y):
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
-        glTranslatef(x, y, 0.0)
-
-    def resize_internal(self):
-        width, height = self.size
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        glOrtho(0, width, height, 0, 1, -1)
-
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
-        glViewport(0, 0, width, height)
 
 
 def translation_matrix(x, y):

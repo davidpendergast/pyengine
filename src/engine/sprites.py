@@ -14,8 +14,7 @@ def gen_unique_id():
 
 class SpriteTypes:
     IMAGE = "IMAGE"
-    LINE = "LINE"
-    RECT = "RECT"
+    TRIANGLE = "TRIANGLE"
 
 
 class _Sprite:
@@ -38,62 +37,81 @@ class _Sprite:
         return "_Sprite({}, {}, {})".format(self.sprite_type(), self.layer_id(), self.uid())
 
 
-class LineSprite(_Sprite):
+class TriangleSprite(_Sprite):
 
-    def __init__(self, layer_id, p1=None, p2=None, thickness=1, color=(1, 1, 1), depth=1, uid=None):
-        super().__init__(self, SpriteTypes.LINE, layer_id, uid=uid)
-        self._p1 = p1
-        self._p2 = p2
+    def __init__(self, points, layer_id, color=(1, 1, 1), depth=1, uid=None):
+        _Sprite.__init__(self, SpriteTypes.TRIANGLE, layer_id, uid=uid)
+        if len(points) != 3:
+            raise ValueError("must have 3 points")
+
+        # (._.)
+        import src.engine.spritesheets as spritesheets
+        self._model = spritesheets.get_instance().get_sheet(spritesheets.WhiteSquare.SHEET_ID).white_box
+
+        self._points = points
         self._color = color
         self._depth = depth
-        self._thickness = thickness
 
-    def update(self, new_p1=None, new_p2=None, new_thickness=None, new_color=None, new_depth=None):
-        p1 = self._p1 if new_p1 is None else new_p1
-        p2 = self._p2 if new_p2 is None else new_p2
-        thickness = self._thickness if new_thickness is None else new_thickness
-        color = self._color if new_color is None else new_color
-        depth = self._depth if new_depth is None else new_depth
-
-        if (p1 == self._p1 and
-                p2 == self._p2 and
-                thickness == self._thickness and
-                color == self._color and
-                depth == self._depth):
-            return self
-        else:
-            return LineSprite(self.layer_id(), p1=p1, p2=p2, thickness=thickness,
-                              color=color, depth=depth, uid=self.uid())
+    def points(self):
+        return self._points
 
     def p1(self):
-        return self._p1
+        return self._points[0]
 
     def p2(self):
-        return self._p2
+        return self._points[1]
+
+    def p3(self):
+        return self._points[2]
 
     def color(self):
         return self._color
 
-    def thickness(self):
-        return self._thickness
+    def depth(self):
+        return self._depth
 
-    def draw_yourself(self, surface, offset=(0, 0), scale=1):
-        xy1 = self.p1()
-        xy2 = self.p2()
-        if xy1 is None or xy2 is None:
-            return
+    def update(self, new_points=None, new_color=None, new_depth=None):
+        points = new_points if new_points is not None else self._points
+        color = new_color if new_color is not None else self._color
+        depth = new_depth if new_depth is not None else self._depth
 
-        x1 = scale * (xy1[0] + offset[0])
-        y1 = scale * (xy1[1] + offset[1])
-        x2 = scale * (xy2[0] + offset[0])
-        y2 = scale * (xy2[1] + offset[1])
+        if (points == self._points and
+                color == self._color and
+                depth == self._depth):
+            return self
+        else:
+            return TriangleSprite(points, self.layer_id(), color, depth, uid=self.uid())
 
-        color = self.color()
-        r = util.Utils.bound(int(color[0] * 256), 0, 255)
-        g = util.Utils.bound(int(color[1] * 256), 0, 255)
-        b = util.Utils.bound(int(color[2] * 256), 0, 255)
+    def add_urself(self, i, vertices, texts, colors, indices):
+        p1 = self.p1()
+        p2 = self.p2()
+        p3 = self.p3()
 
-        pygame.draw.line(surface, (r, g, b), (x1, y1), (x2, y2), self.thickness())
+        vertices[i * 6 + 0] = p1[0]
+        vertices[i * 6 + 1] = p1[1]
+        vertices[i * 6 + 2] = p2[0]
+        vertices[i * 6 + 3] = p2[1]
+        vertices[i * 6 + 4] = p3[0]
+        vertices[i * 6 + 5] = p3[1]
+
+        if colors is not None:
+            rgb = self.color()
+            for j in range(0, 9):
+                colors[i * 9 + j] = rgb[j % 3]
+
+        model = self._model
+        if model is not None:
+            for j in range(0, 3):
+                texts[i * 6 + j * 2] = (model.tx1 + model.tx2) // 2
+                texts[i * 6 + j * 2 + 1] = (model.ty1 + model.ty2) // 2
+
+        indices[3 * i + 0] = 3 * i
+        indices[3 * i + 1] = 3 * i + 1
+        indices[3 * i + 2] = 3 * i + 2
+
+    def __repr__(self):
+        return "TriangleSprite({}, {}, {}, {}, {})".format(
+             self.points(), self.layer_id(), self.color(), self.depth(), self.uid())
     
 
 class ImageSprite(_Sprite):

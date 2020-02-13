@@ -39,8 +39,10 @@ class SpriteSheet:
 
 class DefaultFont(SpriteSheet):
 
+    SHEET_ID = "default_font"
+
     def __init__(self):
-        SpriteSheet.__init__(self, "default_font", "assets/font.png")
+        SpriteSheet.__init__(self, DefaultFont.SHEET_ID, "assets/font.png")
         self._sprite_lookup = {}  # char -> sprite rect on atlas
 
         self._char_mappings = {
@@ -79,10 +81,14 @@ class DefaultFont(SpriteSheet):
 
 
 class WhiteSquare(SpriteSheet):
-    """this is used by the polygon-based sprites"""
+    """this is used by triangle sprites..."""
+
+    SHEET_ID = "white_square"
 
     def __init__(self):
-        SpriteSheet.__init__(self, "white_square", None)
+        SpriteSheet.__init__(self, WhiteSquare.SHEET_ID, None)
+
+        self.white_box = None
 
     def get_size(self, img_size):
         return (32, 32)
@@ -92,11 +98,33 @@ class WhiteSquare(SpriteSheet):
         rect = [start_pos[0], start_pos[1], w, h]
         pygame.draw.rect(atlas, (255, 255, 255), rect)
 
+        self.white_box = sprites.ImageModel(0, 0, w, h, offset=start_pos)
+
+
+_SINGLETON = None
+
+
+def create_instance():
+    global _SINGLETON
+    if _SINGLETON is None:
+        _SINGLETON = SpriteAtlas()
+        return _SINGLETON
+    else:
+        raise ValueError("SpriteAtlas has already been created")
+
+
+def get_instance():
+    return _SINGLETON
+
 
 class SpriteAtlas:
 
     def __init__(self):
         self._sheets = {}  # sheet_id -> SpriteSheet
+
+        # some "built-in" sheets
+        self.add_sheet(DefaultFont())
+        self.add_sheet(WhiteSquare())
 
     def add_sheet(self, sheet):
         self._sheets[sheet.get_sheet_id()] = sheet
