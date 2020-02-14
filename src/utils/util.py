@@ -27,6 +27,20 @@ class Utils:
         return tuple(i[0] + i[1] for i in zip(v1, v2))
 
     @staticmethod
+    def sum(v_list):
+        if len(v_list) == 0:
+            raise ValueError("can't sum 0 vectors")
+        else:
+            res = []
+            for v in v_list:
+                for i in range(0, len(v)):
+                    if i >= len(res):
+                        res.append(v[i])
+                    else:
+                        res[i] += v[i]
+            return tuple(res)
+
+    @staticmethod
     def sub(v1, v2):
         return tuple(i[0] - i[1] for i in zip(v1, v2))
 

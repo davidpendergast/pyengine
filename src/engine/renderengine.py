@@ -281,33 +281,35 @@ class RenderEngine:
     def remove(self, sprite):
         if sprite is None:
             return
-            
-        uid = sprite.uid()
-        if uid in self.sprite_lookup:
-            del self.sprite_lookup[uid]
 
-        self.layers[sprite.layer_id()].remove(uid)
+        if sprite.is_parent():
+            for child_sprite in sprite.all_sprites():
+                self.remove(child_sprite)
+        else:
+            uid = sprite.uid()
+            if uid in self.sprite_lookup:
+                del self.sprite_lookup[uid]
+
+            self.layers[sprite.layer_id()].remove(uid)
         
     def update(self, sprite):
         if sprite is None:
             return
 
-        uid = sprite.uid()
-        self.sprite_lookup[uid] = sprite
-
-        layer = self.layers[sprite.layer_id()]
-
-        if layer.accepts_sprite_type(sprite.sprite_type()):
-            layer.update(uid)
+        if sprite.is_parent():
+            for child_sprite in sprite.all_sprites():
+                self.update(child_sprite)
         else:
-            raise ValueError("Incompatible sprite types: sprite's is {}, and layer's is {}".format(
-                sprite.sprite_type(), layer.get_sprite_type()))
-        
-    def __contains__(self, key):
-        try:
-            return key.uid() in self.sprite_lookup
-        except Exception:
-            return False
+            uid = sprite.uid()
+            self.sprite_lookup[uid] = sprite
+
+            layer = self.layers[sprite.layer_id()]
+
+            if layer.accepts_sprite_type(sprite.sprite_type()):
+                layer.update(uid)
+            else:
+                raise ValueError("Incompatible sprite types: sprite's is {}, and layer's is {}".format(
+                    sprite.sprite_type(), layer.get_sprite_type()))
         
     def render_layers(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -486,9 +488,6 @@ class RenderEngine130(RenderEngine):
         vp_width, vp_height = self._calc_optimal_vp_size(self.size, self.get_pixel_scale())
         glViewport(0, 0, vp_width, vp_height)
         printOpenGLError()
-
-        #print("INFO: set render engine size to ({}, {}), game_size to ({}, {})".format(
-        #    window_width, window_height, game_width, game_height))
 
     def _calc_optimal_vp_size(self, window_size, px_scale):
         """

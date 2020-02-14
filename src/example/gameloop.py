@@ -1,4 +1,5 @@
 import pygame
+import math
 
 from src.utils.util import Utils
 import src.engine.sounds as sounds
@@ -53,6 +54,14 @@ class DemoJunk:
 
     triangle_sprite = None
 
+    cube_center = (-72, 80)
+    cube_length = 40
+    cube_angle = 0
+    cube_color = (0, 0, 0)
+    cube_line_thickness = 1
+
+    cube_line_sprites = []
+
     @staticmethod
     def all_sprites():
         for spr in DemoJunk.floor_sprites:
@@ -65,6 +74,8 @@ class DemoJunk:
             yield spr
         if DemoJunk.triangle_sprite is not None:
             yield DemoJunk.triangle_sprite
+        for spr in DemoJunk.cube_line_sprites:
+            yield spr
 
     class DemoSheet(spritesheets.SpriteSheet):
 
@@ -317,8 +328,10 @@ def update_crappy_demo_scene():
                                                                DemoJunk.SHADOW_LAYER, scale=1))
 
     if DemoJunk.triangle_sprite is None:
-        DemoJunk.triangle_sprite = sprites.TriangleSprite(((0, 0), (10, 0), (0, 10)),
-                                                          DemoJunk.POLYGON_LAYER, color=(0, 0, 0))
+        DemoJunk.triangle_sprite = sprites.TriangleSprite(DemoJunk.POLYGON_LAYER, color=(0, 0, 0))
+
+    while len(DemoJunk.cube_line_sprites) < 12:
+        DemoJunk.cube_line_sprites.append(sprites.LineSprite(DemoJunk.POLYGON_LAYER, thickness=DemoJunk.cube_line_thickness))
 
     anim_tick = DemoJunk.tick_count // 16
 
@@ -372,6 +385,9 @@ def update_crappy_demo_scene():
         DemoJunk.shadow_sprites[i] = shadow_sprite.update(new_model=shadow_model,
                                                           new_x=shadow_x, new_y=shadow_y)
 
+    min_rot_speed = 0.3
+    max_rot_speed = 4
+
     if DemoJunk.triangle_sprite is not None:
         tri_center = DemoJunk.triangle_center
         tri_angle = DemoJunk.triangle_angle * 2 * 3.141529 / 360
@@ -384,14 +400,48 @@ def update_crappy_demo_scene():
         DemoJunk.triangle_sprite = DemoJunk.triangle_sprite.update(new_points=(p1, p2, p3))
 
         player_dist = Utils.dist(DemoJunk.entity_positions[0], tri_center)
-        min_speed = 0.3
-        max_speed = 4
         if player_dist > 100:
-            rotation_speed = min_speed
+            rot_speed = min_rot_speed
         else:
-            rotation_speed = Utils.linear_interp(min_speed, max_speed, (100 - player_dist) / 100)
+            rot_speed = Utils.linear_interp(min_rot_speed, max_rot_speed, (100 - player_dist) / 100)
 
-        DemoJunk.triangle_angle += rotation_speed
+        DemoJunk.triangle_angle += rot_speed
+
+    if len(DemoJunk.cube_line_sprites) == 12:
+        cube_center = DemoJunk.cube_center
+        cube_angle = DemoJunk.cube_angle * 2 * 3.141529 / 360
+        cube_length = DemoJunk.cube_length
+        cube_color = DemoJunk.cube_color
+
+        cube_top_pts = []
+        cube_btm_pts = []
+
+        for i in range(0, 4):
+            dx = cube_length / 2 * math.cos(cube_angle + i * 3.141529 / 2)
+            dy = cube_length / 2 * math.sin(cube_angle + i * 3.141529 / 2) / 2  # foreshortened in the y-axis
+            cube_btm_pts.append(Utils.add(cube_center, (dx, dy)))
+            cube_top_pts.append(Utils.add(cube_center, (dx, dy - cube_length)))
+
+        for i in range(0, 12):
+            if i < 4:  # bottom lines
+                p1 = cube_btm_pts[i % 4]
+                p2 = cube_btm_pts[(i + 1) % 4]
+            elif i < 8:  # top lines
+                p1 = cube_top_pts[i % 4]
+                p2 = cube_top_pts[(i + 1) % 4]
+            else:  # bottom to top lines
+                p1 = cube_btm_pts[i % 4]
+                p2 = cube_top_pts[i % 4]
+
+            DemoJunk.cube_line_sprites[i].update(new_p1=p1, new_p2=p2, new_color=cube_color)
+
+        player_dist = Utils.dist(DemoJunk.entity_positions[0], cube_center)
+        if player_dist > 100:
+            rotation_speed = min_rot_speed
+        else:
+            rotation_speed = Utils.linear_interp(min_rot_speed, max_rot_speed, (100 - player_dist) / 100)
+
+        DemoJunk.cube_angle += rotation_speed
 
     # publishing new sprites to render engine
     for spr in DemoJunk.all_sprites():

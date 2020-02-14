@@ -16,6 +16,9 @@ Some key features:
  - A more convenient way to handle keyboard + mouse inputs (inputs.py).
  - Automatic crash reporting (entry_point.py)
  
+And some new (post-Skeletris) stuff:
+ - Ability to draw triangles and lines.
+ 
 And there's a demo scene to help illustrate the setup (gameloop.py). 
 
 This is what it should look like:

@@ -194,7 +194,7 @@ class SpriteAtlas:
 
         # XXX this is a big hack that tells all the ImageModels we're about to create what size
         # their texture is. They need to know because their GL texture coordinates use an "upward"
-        # y-axis (and everything else uses the opposite), so they need to flip themselves.
+        # y-axis (and everything in my code uses the opposite), so they need to flip themselves.
         sprites._CURRENT_ATLAS_SIZE = atlas_size
 
         atlas_surface = pygame.Surface(atlas_size, pygame.SRCALPHA, 32)

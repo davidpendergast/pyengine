@@ -1,5 +1,5 @@
 import pygame
-import src.utils.util as util
+from src.utils.util import Utils
 
 
 UNIQUE_ID_CTR = 0
@@ -33,36 +33,42 @@ class _Sprite:
     def uid(self):
         return self._uid
 
+    def is_parent(self):
+        return False
+
+    def all_sprites(self):
+        yield
+
     def __repr__(self):
         return "_Sprite({}, {}, {})".format(self.sprite_type(), self.layer_id(), self.uid())
 
 
 class TriangleSprite(_Sprite):
 
-    def __init__(self, points, layer_id, color=(1, 1, 1), depth=1, uid=None):
+    def __init__(self, layer_id, p1=(0, 0), p2=(0, 0), p3=(0, 0), color=(1, 1, 1), depth=1, uid=None):
         _Sprite.__init__(self, SpriteTypes.TRIANGLE, layer_id, uid=uid)
-        if len(points) != 3:
-            raise ValueError("must have 3 points")
 
         # (._.)
         import src.engine.spritesheets as spritesheets
         self._model = spritesheets.get_instance().get_sheet(spritesheets.WhiteSquare.SHEET_ID).white_box
 
-        self._points = points
+        self._p1 = p1
+        self._p2 = p2
+        self._p3 = p3
         self._color = color
         self._depth = depth
 
     def points(self):
-        return self._points
+        return (self.p1(), self.p2(), self.p3())
 
     def p1(self):
-        return self._points[0]
+        return self._p1
 
     def p2(self):
-        return self._points[1]
+        return self._p2
 
     def p3(self):
-        return self._points[2]
+        return self._p3
 
     def color(self):
         return self._color
@@ -70,17 +76,21 @@ class TriangleSprite(_Sprite):
     def depth(self):
         return self._depth
 
-    def update(self, new_points=None, new_color=None, new_depth=None):
-        points = new_points if new_points is not None else self._points
+    def update(self, new_points=None, new_p1=None, new_p2=None, new_p3=None, new_color=None, new_depth=None):
+        points = new_points if new_points is not None else self.points()
+        p1 = new_p1 if new_p1 is not None else points[0]
+        p2 = new_p2 if new_p2 is not None else points[1]
+        p3 = new_p3 if new_p3 is not None else points[2]
+
         color = new_color if new_color is not None else self._color
         depth = new_depth if new_depth is not None else self._depth
 
-        if (points == self._points and
+        if (p1 == self._p1 and p2 == self._p2 and p3 == self._p3 and
                 color == self._color and
                 depth == self._depth):
             return self
         else:
-            return TriangleSprite(points, self.layer_id(), color, depth, uid=self.uid())
+            return TriangleSprite(self.layer_id(), color=color, depth=depth, p1=p1, p2=p2, p3=p3, uid=self.uid())
 
     def add_urself(self, i, vertices, texts, colors, indices):
         p1 = self.p1()
@@ -311,6 +321,110 @@ class ImageModel:
         
     def __repr__(self):
         return "ImageModel({}, {}, {}, {})".format(self.x, self.y, self.w, self.h)
+
+
+class MultiSprite(_Sprite):
+
+    def __init__(self, sprite_type, layer_id):
+        _Sprite.__init__(self, sprite_type, layer_id)
+
+    def is_parent(self):
+        return True
+
+    def all_sprites(self):
+        raise NotImplementedError()
+
+    def __repr__(self):
+        return "MultiSprite({}, {})".format(self.sprite_type(), self.layer_id())
+
+
+class LineSprite(MultiSprite):
+    """two triangles next to each other"""
+
+    def __init__(self, layer_id, p1=(0, 0), p2=(0, 0), thickness=1, color=(1, 1, 1), depth=1):
+        MultiSprite.__init__(self, SpriteTypes.TRIANGLE, layer_id)
+        self._p1 = p1
+        self._p2 = p2
+        self._thickness = thickness
+        self._color = color
+        self._depth = depth
+
+        self._triangle1 = TriangleSprite(self.layer_id())  # butt is at p1
+        self._triangle2 = TriangleSprite(self.layer_id())
+        self._update_triangles()
+
+    def all_sprites(self):
+        yield self._triangle1
+        yield self._triangle2
+
+    def p1(self):
+        return self._p1
+
+    def p2(self):
+        return self._p2
+
+    def color(self):
+        return self._color
+
+    def thickness(self):
+        return self._thickness
+
+    def depth(self):
+        return self._depth
+
+    def update(self, new_p1=None, new_p2=None, new_thickness=None, new_color=(1, 1, 1), new_depth=1):
+        did_change = False
+        if new_p1 is not None and new_p1 != self._p1:
+            self._p1 = new_p1
+            did_change = True
+
+        if new_p2 is not None and new_p2 != self._p2:
+            self._p2 = new_p2
+            did_change = True
+
+        if new_thickness is not None and new_thickness != self._thickness:
+            self._thickness = new_thickness
+            did_change = True
+
+        if new_color is not None and new_color != self._color:
+            self._color = new_color
+            did_change = True
+
+        if new_depth is not None and new_depth != self._depth:
+            self._depth = new_depth
+            did_change = True
+
+        if did_change:
+            self._update_triangles()
+
+        return self
+
+    def _update_triangles(self):
+        p1 = self.p1()
+        p2 = self.p2()
+        if p1 == p2:
+            self._triangle1 = self._triangle1.update(new_points=(p1, p1, p1), new_color=self.color(), new_depth=self.depth())
+            self._triangle2 = self._triangle2.update(new_points=(p1, p1, p1), new_color=self.color(), new_depth=self.depth())
+        else:
+            thickness = self.thickness()
+            color = self.color()
+
+            line_vec = Utils.sub(p2, p1)
+            ortho_up = Utils.set_length(Utils.rotate(line_vec, 3.141529 / 2), thickness // 2)
+            ortho_down = Utils.set_length(Utils.rotate(line_vec, -3.141529 / 2), int(0.5 + thickness / 2))
+
+            #  r1-------r2
+            #  p1     - p2
+            #  |  -      |
+            #  r4-------r3
+            r1 = Utils.sum([p1, ortho_up])
+            r2 = Utils.sum([p1, line_vec, ortho_up])
+            r3 = Utils.sum([p1, line_vec, ortho_down])
+            r4 = Utils.sum([p1, ortho_down])
+
+            self._triangle1 = self._triangle1.update(new_points=(r1, r2, r4), new_color=color, new_depth=self.depth())
+            self._triangle2 = self._triangle2.update(new_points=(r3, r4, r2), new_color=color, new_depth=self.depth())
+
 
 
 
