@@ -37,7 +37,14 @@ class SpriteSheet:
             atlas.blit(sheet, start_pos)
 
 
-class DefaultFont(SpriteSheet):
+class FontCharacterSpriteLookup:
+
+    def get_char(self, c):
+        """returns: an ImageSprite for the character c, or None if one isn't defined."""
+        return None
+
+
+class DefaultFont(SpriteSheet, FontCharacterSpriteLookup):
 
     SHEET_ID = "default_font"
 
@@ -75,9 +82,7 @@ class DefaultFont(SpriteSheet):
         for y in range(0, 8):
             for x in range(0, 32):
                 c = chr(y * 32 + x)
-                self._sprite_lookup[c] = sprites.ImageModel(x * char_w + start_pos[0],
-                                                            y * char_h + start_pos[1],
-                                                            char_w, char_h, offset=start_pos)
+                self._sprite_lookup[c] = sprites.ImageModel(x * char_w, y * char_h, char_w, char_h, offset=start_pos)
 
 
 class WhiteSquare(SpriteSheet):

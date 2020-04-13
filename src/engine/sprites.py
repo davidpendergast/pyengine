@@ -1,4 +1,7 @@
 import pygame
+
+import math
+
 from src.utils.util import Utils
 
 
@@ -144,8 +147,12 @@ class ImageSprite(_Sprite):
             
     def update(self, new_model=None, new_x=None, new_y=None, new_scale=None, new_depth=None,
                new_xflip=None, new_color=None, new_rotation=None, new_ratio=None):
-                
-        model = self.model() if new_model is None else new_model
+
+        if isinstance(new_model, bool) and new_model is False:
+            model = None
+        else:
+            model = self.model() if new_model is None else new_model
+
         x = self.x() if new_x is None else new_x
         y = self.y() if new_y is None else new_y
         scale = self.scale() if new_scale is None else new_scale
@@ -335,7 +342,7 @@ class MultiSprite(_Sprite):
         raise NotImplementedError()
 
     def __repr__(self):
-        return "MultiSprite({}, {})".format(self.sprite_type(), self.layer_id())
+        return type(self).__name__ + "({}, {})".format(self.sprite_type(), self.layer_id())
 
 
 class LineSprite(MultiSprite):
@@ -424,6 +431,152 @@ class LineSprite(MultiSprite):
 
             self._triangle1 = self._triangle1.update(new_points=(r1, r2, r4), new_color=color, new_depth=self.depth())
             self._triangle2 = self._triangle2.update(new_points=(r3, r4, r2), new_color=color, new_depth=self.depth())
+
+    def __repr__(self):
+        return type(self).__name__ + "({}, {})".format(self.p1(), self.p2())
+
+
+class TextSprite(MultiSprite):
+
+    DEFAULT_X_KERNING = 0
+    DEFAULT_Y_KERNING = 0
+
+    def __init__(self, layer_id, x, y, text, scale=1, depth=0, color=(1, 1, 1), color_lookup=None, font_lookup=None,
+                 x_kerning=DEFAULT_X_KERNING, y_kerning=DEFAULT_Y_KERNING):
+
+        MultiSprite.__init__(self, SpriteTypes.IMAGE, layer_id)
+        self._x = x
+        self._y = y
+        self._text = text
+        self._scale = scale
+        self._depth = depth
+        self._base_color = color
+        self._color_lookup = color_lookup if color_lookup is not None else {}
+        self._x_kerning = x_kerning
+        self._y_kerning = y_kerning
+
+        if font_lookup is not None:
+            self._font_lookup = font_lookup
+        else:
+            import src.engine.spritesheets as spritesheets  # (.-.)
+            self._font_lookup = spritesheets.get_instance().get_sheet(spritesheets.DefaultFont.SHEET_ID)
+
+        # this stuff is calculated by _build_character_sprites
+        self._character_sprites = []
+        self._bounding_rect = [0, 0, 0, 0]
+        self._unused_sprites = []
+
+        self._build_character_sprites()
+
+    def get_rect(self):
+        return self._bounding_rect
+
+    def get_size(self):
+        return (self._bounding_rect[2], self._bounding_rect[3])
+
+    def _build_character_sprites(self):
+        a_character = self._font_lookup.get_char("a")
+        char_size = a_character.size()
+
+        # we're going to reuse these if possible
+        old_sprites = []
+        old_sprites.extend(self._unused_sprites)
+        self._unused_sprites.clear()
+
+        self._character_sprites.reverse()
+        old_sprites.extend(self._character_sprites)
+        self._character_sprites.clear()
+
+        self._bounding_rect = [self._x, self._y, 0, 0]
+
+        cur_x = self._x
+        cur_y = self._y
+
+        for idx in range(0, len(self._text)):
+            character = self._text[idx]
+            if character == "\n":
+                cur_x = self._x
+                cur_y += math.ceil(char_size[1] * self._scale) + self._y_kerning
+            else:
+                char_model = self._font_lookup.get_char(character)
+                if char_model is not None:
+                    if len(old_sprites) > 0:
+                        next_sprite = old_sprites.pop()
+                    else:
+                        next_sprite = ImageSprite.new_sprite(self.layer_id())
+
+                    char_color = self._base_color if idx not in self._color_lookup else self._color_lookup[idx]
+
+                    char_sprite = next_sprite.update(new_model=char_model, new_x=cur_x, new_y=cur_y,
+                                                     new_scale=self._scale, new_depth=self._depth,
+                                                     new_color=char_color)
+
+                    self._character_sprites.append(char_sprite)
+
+                    self._bounding_rect[2] = max(self._bounding_rect[2], char_sprite.x() + char_sprite.width() - self._bounding_rect[0])
+                    self._bounding_rect[3] = max(self._bounding_rect[3], char_sprite.y() + char_sprite.height() - self._bounding_rect[1])
+                    cur_x += char_sprite.width() + self._x_kerning
+                else:
+                    self._bounding_rect[2] = max(self._bounding_rect[2], cur_x + math.ceil(char_size[0] * self._scale) - self._bounding_rect[0])
+                    self._bounding_rect[3] = max(self._bounding_rect[3], cur_y + math.ceil(char_size[1] * self._scale) - self._bounding_rect[1])
+                    cur_x += math.ceil(char_size[0] * self._scale) + self._x_kerning
+
+        for spr in old_sprites:
+            spr = spr.update(new_model=False, new_x=self._bounding_rect[0], new_y=self._bounding_rect[1] + 16)
+            self._unused_sprites.append(spr)
+
+    def update(self, new_x=None, new_y=None, new_text=None, new_scale=None, new_depth=None,
+               new_color=None, new_color_lookup=None, new_font_lookup=None,
+               new_x_kerning=None, new_y_kerning=None):
+
+        did_change = False
+
+        if new_x is not None and new_x != self._x:
+            did_change = True
+            self._x = new_x
+        if new_y is not None and new_y != self._y:
+            did_change = True
+            self._y = new_y
+        if new_text is not None and new_text != self._text:
+            did_change = True
+            self._text = new_text
+        if new_scale is not None and new_scale != self._scale:
+            did_change = True
+            self._scale = new_scale
+        if new_depth is not None and new_depth != self._depth:
+            did_change = True
+            self._depth = new_depth
+        if new_color is not None and new_color != self._base_color:
+            did_change = True
+            self._base_color = new_color
+        if new_color_lookup is not None and new_color_lookup != self._color_lookup:
+            did_change = True
+            self._color_lookup = new_color_lookup
+        if new_font_lookup is not None and new_font_lookup != self._font_lookup:
+            did_change = True
+            self._font_lookup = new_font_lookup
+        if new_x_kerning is not None and new_x_kerning != self._x_kerning:
+            did_change = True
+            self._x_kerning = new_x_kerning
+        if new_y_kerning is not None and new_y_kerning != self._y_kerning:
+            did_change = True
+            self._y_kerning = new_y_kerning
+
+        if did_change:
+            self._build_character_sprites()
+
+        return self
+
+    def all_sprites(self):
+        for spr in self._character_sprites:
+            yield spr
+        for spr in self._unused_sprites:  # big yikes
+            yield spr
+
+    def __repr__(self):
+        return type(self).__name__ + "({}, {}, {})".format(self._x, self._y, self._text.replace("\n", "\\n"))
+
+
 
 
 

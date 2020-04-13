@@ -1,5 +1,6 @@
 import pygame
 import math
+import random
 
 from src.utils.util import Utils
 import src.engine.sounds as sounds
@@ -22,8 +23,11 @@ class DemoJunk:
     WALL_LAYER = "WALLS"
     ENTITY_LAYER = "ENTITIES"
     POLYGON_LAYER = "POLYGONS"
+    UI_FG_LAYER = "UI_FG"
+    UI_BG_LAYER = "UI_BG"
 
     world_layer_ids = [ENTITY_LAYER, SHADOW_LAYER, WALL_LAYER, FLOOR_LAYER, POLYGON_LAYER]
+    ui_layer_ids = [UI_BG_LAYER, UI_FG_LAYER]
 
     tick_count = 0
     px_scale = -1
@@ -62,6 +66,9 @@ class DemoJunk:
 
     cube_line_sprites = []
 
+    fps_text_sprite = None
+    title_text_sprite = None
+
     @staticmethod
     def all_sprites():
         for spr in DemoJunk.floor_sprites:
@@ -76,6 +83,10 @@ class DemoJunk:
             yield DemoJunk.triangle_sprite
         for spr in DemoJunk.cube_line_sprites:
             yield spr
+        if DemoJunk.fps_text_sprite is not None:
+            yield DemoJunk.fps_text_sprite
+        if DemoJunk.title_text_sprite is not None:
+            yield DemoJunk.title_text_sprite
 
     class DemoSheet(spritesheets.SpriteSheet):
 
@@ -131,6 +142,9 @@ def init(name_of_game):
 
     atlas_surface = sprite_atlas.create_atlas_surface()
 
+    # uncomment to save out the full texture atlas
+    # pygame.image.save(atlas_surface, "texture_atlas.png")
+
     texture_data = pygame.image.tostring(atlas_surface, "RGBA", 1)
     width = atlas_surface.get_width()
     height = atlas_surface.get_height()
@@ -144,6 +158,9 @@ def init(name_of_game):
     render_eng.add_layer(layers.ImageLayer(DemoJunk.WALL_LAYER, 10, False, COLOR))
     render_eng.add_layer(layers.PolygonLayer(DemoJunk.POLYGON_LAYER, 12, SORTS))
     render_eng.add_layer(layers.ImageLayer(DemoJunk.ENTITY_LAYER, 15, SORTS, COLOR))
+
+    render_eng.add_layer(layers.ImageLayer(DemoJunk.UI_FG_LAYER, 0, SORTS, COLOR))
+    render_eng.add_layer(layers.ImageLayer(DemoJunk.UI_BG_LAYER, 5, SORTS, COLOR))
 
     inputs.create_instance()
 
@@ -279,7 +296,8 @@ def run():
         renderengine.get_instance().set_clear_color((0.66, 0.66, 0.66))
 
         # REPLACE with real updating
-        update_crappy_demo_scene()
+        fps = clock.get_fps()
+        update_crappy_demo_scene(fps)
 
         renderengine.get_instance().render_layers()
         pygame.display.flip()
@@ -301,7 +319,7 @@ def run():
     pygame.quit()
 
 
-def update_crappy_demo_scene():
+def update_crappy_demo_scene(fps_for_display):
     if len(DemoJunk.entity_sprites) == 0:
         DemoJunk.entity_sprites.append(sprites.ImageSprite.new_sprite(DemoJunk.ENTITY_LAYER, scale=1))  # player
         DemoJunk.entity_sprites.append(sprites.ImageSprite.new_sprite(DemoJunk.ENTITY_LAYER, scale=1))  # tv
@@ -406,6 +424,21 @@ def update_crappy_demo_scene():
             rot_speed = Utils.linear_interp(min_rot_speed, max_rot_speed, (100 - player_dist) / 100)
 
         DemoJunk.triangle_angle += rot_speed
+
+    text_inset = 4
+
+    title_text = "Demo Scene"
+    if DemoJunk.title_text_sprite is None:
+        DemoJunk.title_text_sprite = sprites.TextSprite(DemoJunk.UI_FG_LAYER, 0, text_inset, title_text)
+
+    title_text_width = DemoJunk.title_text_sprite.get_size()[0]
+    title_text_x = renderengine.get_instance().get_game_size()[0] - title_text_width - text_inset
+    DemoJunk.title_text_sprite = DemoJunk.title_text_sprite.update(new_x=title_text_x)
+
+    if DemoJunk.fps_text_sprite is None:
+        DemoJunk.fps_text_sprite = sprites.TextSprite(DemoJunk.UI_FG_LAYER, text_inset, text_inset, "FPS: 0")
+    fps_text = "FPS: {}".format(int(fps_for_display))
+    DemoJunk.fps_text_sprite = DemoJunk.fps_text_sprite.update(new_x=text_inset, new_y=text_inset, new_text=fps_text)
 
     if len(DemoJunk.cube_line_sprites) == 12:
         cube_center = DemoJunk.cube_center
