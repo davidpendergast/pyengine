@@ -69,6 +69,10 @@ class DemoJunk:
     fps_text_sprite = None
     title_text_sprite = None
 
+    text_box_rect = [0, 0, 0, 0]
+    text_box_sprite = None
+    text_box_text_sprite = None
+
     @staticmethod
     def all_sprites():
         for spr in DemoJunk.floor_sprites:
@@ -83,10 +87,16 @@ class DemoJunk:
             yield DemoJunk.triangle_sprite
         for spr in DemoJunk.cube_line_sprites:
             yield spr
+
         if DemoJunk.fps_text_sprite is not None:
             yield DemoJunk.fps_text_sprite
         if DemoJunk.title_text_sprite is not None:
             yield DemoJunk.title_text_sprite
+
+        if DemoJunk.text_box_sprite is not None:
+            yield DemoJunk.text_box_sprite
+        if DemoJunk.text_box_text_sprite is not None:
+            yield DemoJunk.text_box_text_sprite
 
     class DemoSheet(spritesheets.SpriteSheet):
 
@@ -99,6 +109,8 @@ class DemoJunk:
             self.wall_model = None
             self.shadow_model = None
 
+            self.border_models = []
+
             self.all_models = []
 
         def draw_to_atlas(self, atlas, sheet, start_pos=(0, 0)):
@@ -110,9 +122,15 @@ class DemoJunk:
             self.wall_model = sprites.ImageModel(80, 16, 16, 16, offset=start_pos)
             self.shadow_model = sprites.ImageModel(64, 0, 16, 16, offset=start_pos)
 
+            self.border_models = []
+            for y in range(0, 3):
+                for x in range(0, 3):
+                    self.border_models.append(sprites.ImageModel(96 + x * 8, 8 + y * 8, 8, 8, offset=start_pos))
+
             self.all_models = [self.floor_model, self.wall_model, self.shadow_model]
             self.all_models.extend(self.player_models)
             self.all_models.extend(self.tv_models)
+            self.all_models.extend(self.border_models)
 
     demo_sheet = DemoSheet()
 
@@ -159,8 +177,8 @@ def init(name_of_game):
     render_eng.add_layer(layers.PolygonLayer(DemoJunk.POLYGON_LAYER, 12, SORTS))
     render_eng.add_layer(layers.ImageLayer(DemoJunk.ENTITY_LAYER, 15, SORTS, COLOR))
 
-    render_eng.add_layer(layers.ImageLayer(DemoJunk.UI_FG_LAYER, 0, SORTS, COLOR))
-    render_eng.add_layer(layers.ImageLayer(DemoJunk.UI_BG_LAYER, 5, SORTS, COLOR))
+    render_eng.add_layer(layers.ImageLayer(DemoJunk.UI_FG_LAYER, 20, SORTS, COLOR))
+    render_eng.add_layer(layers.ImageLayer(DemoJunk.UI_BG_LAYER, 19, SORTS, COLOR))
 
     inputs.create_instance()
 
@@ -439,6 +457,31 @@ def update_crappy_demo_scene(fps_for_display):
         DemoJunk.fps_text_sprite = sprites.TextSprite(DemoJunk.UI_FG_LAYER, text_inset, text_inset, "FPS: 0")
     fps_text = "FPS: {}".format(int(fps_for_display))
     DemoJunk.fps_text_sprite = DemoJunk.fps_text_sprite.update(new_x=text_inset, new_y=text_inset, new_text=fps_text)
+
+    player_to_tv_dist = Utils.dist(DemoJunk.entity_positions[0], DemoJunk.entity_positions[1])
+    info_text = "there's something wrong with the TV." if player_to_tv_dist < 32 else None
+    info_text_w = 400 - 32
+    info_text_h = 48
+    info_text_rect = [renderengine.get_instance().get_game_size()[0] // 2 - info_text_w // 2,
+                      renderengine.get_instance().get_game_size()[1] - info_text_h - 16,
+                      info_text_w, info_text_h]
+    if info_text is None:
+        if DemoJunk.text_box_text_sprite is not None:
+            renderengine.get_instance().remove(DemoJunk.text_box_text_sprite)
+            DemoJunk.text_box_text_sprite = None
+        if DemoJunk.text_box_sprite is not None:
+            renderengine.get_instance().remove(DemoJunk.text_box_sprite)
+            DemoJunk.text_box_sprite = None
+    else:
+        if DemoJunk.text_box_text_sprite is None:
+            DemoJunk.text_box_text_sprite = sprites.TextSprite(DemoJunk.UI_FG_LAYER, 0, 0, info_text)
+        DemoJunk.text_box_text_sprite = DemoJunk.text_box_text_sprite.update(new_x=info_text_rect[0],
+                                                                             new_y=info_text_rect[1],
+                                                                             new_text=info_text)
+        if DemoJunk.text_box_sprite is None:
+            DemoJunk.text_box_sprite = sprites.BorderBoxSprite(DemoJunk.UI_BG_LAYER, info_text_rect,
+                                                               all_borders=DemoJunk.demo_sheet.border_models)
+        DemoJunk.text_box_sprite = DemoJunk.text_box_sprite.update(new_rect=info_text_rect, new_scale=2)
 
     if len(DemoJunk.cube_line_sprites) == 12:
         cube_center = DemoJunk.cube_center

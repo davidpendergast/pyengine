@@ -577,6 +577,182 @@ class TextSprite(MultiSprite):
         return type(self).__name__ + "({}, {}, {})".format(self._x, self._y, self._text.replace("\n", "\\n"))
 
 
+class BorderBoxSprite(MultiSprite):
+
+    def __init__(self, layer_id, rect,
+                 top_left=None, top=None, top_right=None,
+                 left=None, center=None, right=None,
+                 bottom_left=None, bottom=None, bottom_right=None,
+                 all_borders=None,
+                 scale=1, color=(1, 1, 1), depth=0, bg_color=None):
+        """
+        rect: the inner rectangle of the box
+        """
+        MultiSprite.__init__(self, SpriteTypes.IMAGE, layer_id)
+
+        self._rect = rect
+        self._color = color
+        self._bg_color = color if bg_color is None else bg_color
+        self._scale = scale
+        self._depth = depth
+
+        self._top_left_model = all_borders[0] if all_borders is not None else top_left
+        self._top_model = all_borders[1] if all_borders is not None else top
+        self._top_right_model = all_borders[2] if all_borders is not None else top_right
+
+        self._left_model = all_borders[3] if all_borders is not None else left
+        self._center_model = all_borders[4] if all_borders is not None else center
+        self._right_model = all_borders[5] if all_borders is not None else right
+
+        self._bottom_left_model = all_borders[6] if all_borders is not None else bottom_left
+        self._bottom_model = all_borders[7] if all_borders is not None else bottom
+        self._bottom_right_model = all_borders[8] if all_borders is not None else bottom_right
+
+        self._top_left_sprite = None
+        self._top_sprite = None
+        self._top_right_sprite = None
+
+        self._left_sprite = None
+        self._center_sprite = None
+        self._right_sprite = None
+
+        self._bottom_left_sprite = None
+        self._bottom_sprite = None
+        self._bottom_right_sprite = None
+
+        self._build_sprites()
+
+    def _anchor_corner_to(self, corner_model, anchor_at, corner_sprite, pos):
+        if corner_model is None and corner_sprite is None:
+            return None
+        elif corner_model is None:
+            return corner_sprite.update(new_x=pos[0], new_y=pos[1], new_model=False)
+
+        if corner_sprite is None:
+            corner_sprite = ImageSprite.new_sprite(self.layer_id())
+
+        sprite_x = pos[0] if anchor_at[0] == 0 else (pos[0] - corner_model.width() * self._scale)
+        sprite_y = pos[1] if anchor_at[1] == 0 else (pos[1] - corner_model.height() * self._scale)
+
+        return corner_sprite.update(new_model=corner_model, new_x=sprite_x, new_y=sprite_y, new_scale=self._scale,
+                                    new_depth=self._depth, new_color=self._color)
+
+    def _build_center_sprite(self, center_model, center_sprite):
+        if center_model is None and center_sprite is None:
+            return None
+        elif center_model is None:
+            return center_sprite.update(new_x=self._rect[0], new_y=self._rect[1], new_model=False)
+
+        if center_sprite is None:
+            center_sprite = ImageSprite.new_sprite(self.layer_id())
+
+        x_ratio = self._rect[2] / center_model.width()
+        y_ratio = self._rect[3] / center_model.height()
+
+        return center_sprite.update(new_model=center_model, new_x=self._rect[0], new_y=self._rect[1],
+                                    new_scale=1, new_depth=self._depth, new_color=self._bg_color,
+                                    new_ratio=(x_ratio, y_ratio))
+
+    def _anchor_vert_side_to(self, model, anchor_x_side, sprite, x_pos):
+        if model is None and sprite is None:
+            return None
+        elif model is None:
+            return sprite.update(new_x=x_pos, new_y=self._rect[1], new_model=False)
+
+        if sprite is None:
+            sprite = ImageSprite.new_sprite(self.layer_id())
+
+        sprite_x = x_pos if anchor_x_side == 0 else (x_pos - model.width() * self._scale)
+        y_ratio = self._rect[3] / model.height()
+
+        return sprite.update(new_model=model, new_x=sprite_x, new_y=self._rect[1], new_scale=1, new_depth=self._depth,
+                             new_ratio=(self._scale, y_ratio))
+
+    def _anchor_horz_side_to(self, model, anchor_y_side, sprite, y_pos):
+        if model is None and sprite is None:
+            return None
+        elif model is None:
+            return sprite.update(new_x=self._rect[0], new_y=y_pos, new_model=False)
+
+        if sprite is None:
+            sprite = ImageSprite.new_sprite(self.layer_id())
+
+        sprite_y = y_pos if anchor_y_side == 0 else (y_pos - model.height() * self._scale)
+        x_ratio = self._rect[2] / model.width()
+
+        return sprite.update(new_model=model, new_x=self._rect[0], new_y=sprite_y, new_scale=1, new_depth=self._depth,
+                             new_ratio=(x_ratio, self._scale))
+
+    def _build_sprites(self):
+        x1 = self._rect[0]
+        y1 = self._rect[1]
+        x2 = self._rect[0] + self._rect[2]
+        y2 = self._rect[1] + self._rect[3]
+
+        self._top_left_sprite = self._anchor_corner_to(self._top_left_model, (1, 1), self._top_left_sprite, (x1, y1))
+        self._top_right_sprite = self._anchor_corner_to(self._top_right_model, (0, 1), self._top_right_sprite, (x2, y1))
+        self._bottom_left_sprite = self._anchor_corner_to(self._bottom_left_model, (1, 0), self._bottom_left_sprite, (x1, y2))
+        self._bottom_right_sprite = self._anchor_corner_to(self._bottom_right_model, (0, 0), self._bottom_right_sprite, (x2, y2))
+
+        self._center_sprite = self._build_center_sprite(self._center_model, self._center_sprite)
+
+        self._left_sprite = self._anchor_vert_side_to(self._left_model, 1, self._left_sprite, x1)
+        self._right_sprite = self._anchor_vert_side_to(self._right_model, 0, self._right_sprite, x2)
+
+        self._top_sprite = self._anchor_horz_side_to(self._top_model, 1, self._top_sprite, y1)
+        self._bottom_sprite = self._anchor_horz_side_to(self._bottom_model, 0, self._bottom_sprite, y2)
+
+    def update(self, new_rect=None, new_scale=None, new_color=None, new_depth=None, new_bg_color=None):
+        did_change = False
+        if new_rect is not None and self._rect != new_rect:
+            did_change = True
+            self._rect = new_rect
+        if new_scale is not None and self._scale != new_scale:
+            did_change = True
+            self._scale = new_scale
+        if new_color is not None and self._color != new_color:
+            did_change = True
+            self._color = new_color
+        if new_depth is not None and self._depth != new_depth:
+            did_change = True
+            self._depth = new_depth
+        if new_bg_color is not None and self._bg_color != new_bg_color:
+            did_change = True
+            self._bg_color = new_bg_color
+
+        if did_change:
+            self._build_sprites()
+
+        return self
+
+    def all_sprites(self):
+        if self._top_left_sprite is not None:
+            yield self._top_left_sprite
+        if self._top_sprite is not None:
+            yield self._top_sprite
+        if self._top_right_sprite is not None:
+            yield self._top_right_sprite
+
+        if self._left_sprite is not None:
+            yield self._left_sprite
+        if self._center_sprite is not None:
+            yield self._center_sprite
+        if self._right_sprite is not None:
+            yield self._right_sprite
+
+        if self._bottom_left_sprite is not None:
+            yield self._bottom_left_sprite
+        if self._bottom_sprite is not None:
+            yield self._bottom_sprite
+        if self._bottom_right_sprite is not None:
+            yield self._bottom_right_sprite
+
+
+
+
+
+
+
 
 
 
