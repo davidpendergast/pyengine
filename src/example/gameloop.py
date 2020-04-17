@@ -459,7 +459,7 @@ def update_crappy_demo_scene(fps_for_display):
     DemoJunk.fps_text_sprite = DemoJunk.fps_text_sprite.update(new_x=text_inset, new_y=text_inset, new_text=fps_text)
 
     player_to_tv_dist = Utils.dist(DemoJunk.entity_positions[0], DemoJunk.entity_positions[1])
-    info_text = "there's something wrong with the TV." if player_to_tv_dist < 32 else None
+    info_text = "There's something wrong with the TV. Maybe it's better this way." if player_to_tv_dist < 32 else None
     info_text_w = 400 - 32
     info_text_h = 48
     info_text_rect = [renderengine.get_instance().get_game_size()[0] // 2 - info_text_w // 2,
@@ -473,11 +473,12 @@ def update_crappy_demo_scene(fps_for_display):
             renderengine.get_instance().remove(DemoJunk.text_box_sprite)
             DemoJunk.text_box_sprite = None
     else:
+        wrapped_text = "\n".join(sprites.TextSprite.wrap_text_to_fit(info_text, info_text_rect[2]))
         if DemoJunk.text_box_text_sprite is None:
-            DemoJunk.text_box_text_sprite = sprites.TextSprite(DemoJunk.UI_FG_LAYER, 0, 0, info_text)
+            DemoJunk.text_box_text_sprite = sprites.TextSprite(DemoJunk.UI_FG_LAYER, 0, 0, wrapped_text)
         DemoJunk.text_box_text_sprite = DemoJunk.text_box_text_sprite.update(new_x=info_text_rect[0],
                                                                              new_y=info_text_rect[1],
-                                                                             new_text=info_text)
+                                                                             new_text=wrapped_text)
         if DemoJunk.text_box_sprite is None:
             DemoJunk.text_box_sprite = sprites.BorderBoxSprite(DemoJunk.UI_BG_LAYER, info_text_rect,
                                                                all_borders=DemoJunk.demo_sheet.border_models)

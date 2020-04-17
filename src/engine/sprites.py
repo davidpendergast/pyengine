@@ -441,7 +441,7 @@ class TextSprite(MultiSprite):
     DEFAULT_X_KERNING = 0
     DEFAULT_Y_KERNING = 0
 
-    def __init__(self, layer_id, x, y, text, scale=1, depth=0, color=(1, 1, 1), color_lookup=None, font_lookup=None,
+    def __init__(self, layer_id, x, y, text, scale=1.0, depth=0, color=(1, 1, 1), color_lookup=None, font_lookup=None,
                  x_kerning=DEFAULT_X_KERNING, y_kerning=DEFAULT_Y_KERNING):
 
         MultiSprite.__init__(self, SpriteTypes.IMAGE, layer_id)
@@ -575,6 +575,52 @@ class TextSprite(MultiSprite):
 
     def __repr__(self):
         return type(self).__name__ + "({}, {}, {})".format(self._x, self._y, self._text.replace("\n", "\\n"))
+
+    @staticmethod
+    def wrap_text_to_fit(text, width, scale=1, font_lookup=None, x_kerning=DEFAULT_X_KERNING):
+
+        if font_lookup is None:
+            import src.engine.spritesheets as spritesheets  # (.-.)
+            font_lookup = spritesheets.get_instance().get_sheet(spritesheets.DefaultFont.SHEET_ID)
+
+        if "\n" in text:
+            lines = text.split("\n")
+            res = []
+            for line in lines:
+                for subline in TextSprite.wrap_text_to_fit(line, width, scale=scale, font_lookup=font_lookup, x_kerning=x_kerning):
+                    res.append(subline)
+            return res
+        else:
+            # at this point, text contains no newlines
+            res = []
+            letter_width = font_lookup.get_char("a").width() * scale + x_kerning
+
+            words = text.split(" ")  # FYI if you have repeated spaces this will delete them
+            cur_line = []
+            cur_width = 0
+
+            for w in words:
+                if len(w) == 0:
+                    continue
+                else:
+                    word_width = len(w) * letter_width
+                    if len(cur_line) == 0:
+                        cur_line.append(w)
+                        cur_width = word_width
+                    elif cur_width + letter_width + word_width > width / scale:
+                        # gotta wrap
+                        res.append(" ".join(cur_line))
+                        cur_line.clear()
+                        cur_line.append(w)
+                        cur_width = word_width
+                    else:
+                        cur_line.append(w)
+                        cur_width += letter_width + word_width
+
+            if len(cur_line) > 0:
+                res.append(" ".join(cur_line))
+
+            return res
 
 
 class BorderBoxSprite(MultiSprite):
