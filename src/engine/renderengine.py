@@ -551,18 +551,18 @@ class RenderEngine120(RenderEngine130):
     def build_shader(self):
         return Shader(
             '''
-            # version 130
-            in vec2 position;
-
+            # version 120
+            attribute vec2 position;
+            
             uniform mat4 modelview;
             uniform mat4 proj;
-
-            in vec2 vTexCoord;
-            out vec2 texCoord;
-
-            in vec3 vColor;
-            out vec3 color;
-
+            
+            attribute vec2 vTexCoord;
+            varying vec2 texCoord;
+            
+            attribute vec3 vColor;
+            varying vec3 color;
+            
             void main()
             {
                 texCoord = vTexCoord;
@@ -571,17 +571,16 @@ class RenderEngine120(RenderEngine130):
             }
             ''',
             '''
-            #version 130
-            in vec2 texCoord;
-            in vec3 color;
-
+            #version 120
+            varying vec2 texCoord;
+            varying vec3 color;
+            
             uniform vec2 texSize;
             uniform sampler2D tex0;
-
+            
             void main(void) {
                 vec2 texPos = vec2(texCoord.x / texSize.x, texCoord.y / texSize.y);
                 vec4 tcolor = texture2D(tex0, texPos);
-
                 for (int i = 0; i < 3; i++) {
                     if (tcolor[i] >= 0.99) {
                         gl_FragColor[i] = tcolor[i] * color[i];
@@ -589,7 +588,6 @@ class RenderEngine120(RenderEngine130):
                         gl_FragColor[i] = tcolor[i] * color[i] * color[i];                    
                     }
                 }
-
                 gl_FragColor.w = tcolor.w;
             }
             '''
