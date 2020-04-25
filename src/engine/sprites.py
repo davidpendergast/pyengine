@@ -1,4 +1,5 @@
-import pygame
+
+import src.engine.globaltimer as globaltimer
 
 import math
 
@@ -26,7 +27,11 @@ class _Sprite:
         self._sprite_type = sprite_type
         self._layer_id = layer_id
         self._uid = gen_unique_id() if uid is None else uid
-        self._last_modified_tick = 0
+
+        self._last_modified_tick = globaltimer.tick_count()
+
+    def last_modified_tick(self):
+        return self._last_modified_tick
 
     def sprite_type(self):
         return self._sprite_type
@@ -40,8 +45,13 @@ class _Sprite:
     def is_parent(self):
         return False
 
-    def all_sprites(self):
+    def all_sprites_nullable(self):
         yield
+
+    def all_sprites(self):
+        for spr in self.all_sprites_nullable():
+            if spr is not None:
+                yield spr
 
     def __repr__(self):
         return "_Sprite({}, {}, {})".format(self.sprite_type(), self.layer_id(), self.uid())
@@ -339,8 +349,11 @@ class MultiSprite(_Sprite):
     def is_parent(self):
         return True
 
-    def all_sprites(self):
+    def all_sprites_nullable(self):
         raise NotImplementedError()
+
+    def last_modified_tick(self):
+        return max(spr.last_modified_tick() for spr in self.all_sprites())
 
     def __repr__(self):
         return type(self).__name__ + "({}, {})".format(self.sprite_type(), self.layer_id())
@@ -361,7 +374,7 @@ class LineSprite(MultiSprite):
         self._triangle2 = TriangleSprite(self.layer_id())
         self._update_triangles()
 
-    def all_sprites(self):
+    def all_sprites_nullable(self):
         yield self._triangle1
         yield self._triangle2
 
@@ -465,7 +478,7 @@ class TextSprite(MultiSprite):
         # this stuff is calculated by _build_character_sprites
         self._character_sprites = []
         self._bounding_rect = [0, 0, 0, 0]
-        self._unused_sprites = []
+        self._unused_sprites = []  # TODO delete
 
         self._build_character_sprites()
 
@@ -473,7 +486,7 @@ class TextSprite(MultiSprite):
         return self._bounding_rect
 
     def get_size(self):
-        return (self._bounding_rect[2], self._bounding_rect[3])
+        return self._bounding_rect[2], self._bounding_rect[3]
 
     def _build_character_sprites(self):
         a_character = self._font_lookup.get_char("a")
@@ -568,7 +581,7 @@ class TextSprite(MultiSprite):
 
         return self
 
-    def all_sprites(self):
+    def all_sprites_nullable(self):
         for spr in self._character_sprites:
             yield spr
         for spr in self._unused_sprites:  # big yikes
@@ -579,7 +592,6 @@ class TextSprite(MultiSprite):
 
     @staticmethod
     def wrap_text_to_fit(text, width, scale=1, font_lookup=None, x_kerning=DEFAULT_X_KERNING):
-
         if font_lookup is None:
             import src.engine.spritesheets as spritesheets  # (.-.)
             font_lookup = spritesheets.get_instance().get_sheet(spritesheets.DefaultFont.SHEET_ID)
@@ -792,27 +804,18 @@ class BorderBoxSprite(MultiSprite):
 
         return self
 
-    def all_sprites(self):
-        if self._top_left_sprite is not None:
-            yield self._top_left_sprite
-        if self._top_sprite is not None:
-            yield self._top_sprite
-        if self._top_right_sprite is not None:
-            yield self._top_right_sprite
+    def all_sprites_nullable(self):
+        yield self._top_left_sprite
+        yield self._top_sprite
+        yield self._top_right_sprite
 
-        if self._left_sprite is not None:
-            yield self._left_sprite
-        if self._center_sprite is not None:
-            yield self._center_sprite
-        if self._right_sprite is not None:
-            yield self._right_sprite
+        yield self._left_sprite
+        yield self._center_sprite
+        yield self._right_sprite
 
-        if self._bottom_left_sprite is not None:
-            yield self._bottom_left_sprite
-        if self._bottom_sprite is not None:
-            yield self._bottom_sprite
-        if self._bottom_right_sprite is not None:
-            yield self._bottom_right_sprite
+        yield self._bottom_left_sprite
+        yield self._bottom_sprite
+        yield self._bottom_right_sprite
 
 
 

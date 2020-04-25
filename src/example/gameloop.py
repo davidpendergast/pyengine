@@ -74,7 +74,7 @@ class DemoJunk:
     text_box_text_sprite = None
 
     @staticmethod
-    def all_sprites():
+    def all_sprites_nullable():
         for spr in DemoJunk.floor_sprites:
             yield spr
         for spr in DemoJunk.wall_sprites:
@@ -83,20 +83,23 @@ class DemoJunk:
             yield spr
         for spr in DemoJunk.shadow_sprites:
             yield spr
-        if DemoJunk.triangle_sprite is not None:
-            yield DemoJunk.triangle_sprite
+
+        yield DemoJunk.triangle_sprite
+
         for spr in DemoJunk.cube_line_sprites:
             yield spr
 
-        if DemoJunk.fps_text_sprite is not None:
-            yield DemoJunk.fps_text_sprite
-        if DemoJunk.title_text_sprite is not None:
-            yield DemoJunk.title_text_sprite
+        yield DemoJunk.fps_text_sprite
+        yield DemoJunk.title_text_sprite
+        
+        yield DemoJunk.text_box_sprite
+        yield DemoJunk.text_box_text_sprite
 
-        if DemoJunk.text_box_sprite is not None:
-            yield DemoJunk.text_box_sprite
-        if DemoJunk.text_box_text_sprite is not None:
-            yield DemoJunk.text_box_text_sprite
+    @staticmethod
+    def all_sprites():
+        for spr in DemoJunk.all_sprites_nullable():
+            if spr is not None:
+                yield spr
 
     class DemoSheet(spritesheets.SpriteSheet):
 
