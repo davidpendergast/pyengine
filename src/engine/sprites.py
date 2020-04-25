@@ -623,6 +623,26 @@ class TextSprite(MultiSprite):
             return res
 
 
+class TextBuilder:
+
+    def __init__(self):
+        self.text = ""
+        self.colors = {}
+
+    def add(self, new_text, color=None):
+        if color is not None:
+            for i in range(0, len(new_text)):
+                self.colors[len(self.text) + i] = color
+        self.text += new_text
+        return self
+
+    def addLine(self, new_text, color=None):
+        return self.add(new_text + "\n", color=color)
+
+    def __repr__(self):
+        return "TextBuilder({}, {})".format(self.text, self.colors)
+
+
 class BorderBoxSprite(MultiSprite):
 
     def __init__(self, layer_id, rect,
