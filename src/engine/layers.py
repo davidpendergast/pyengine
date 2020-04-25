@@ -67,13 +67,13 @@ class _Layer:
     def get_num_sprites(self):
         raise NotImplementedError()
 
-    def update(self, sprite_id):
+    def update(self, sprite_id, last_mod_time):
         raise NotImplementedError()
 
     def remove(self, sprite_id):
         raise NotImplementedError()
 
-    def rebuild(self, sprite_lookup):
+    def rebuild(self, sprite_info_lookup):
         raise NotImplementedError()
 
     def render(self, engine):
@@ -95,7 +95,9 @@ class ImageLayer(_Layer):
         _Layer.__init__(self, layer_id, layer_depth, sort_sprites=sort_sprites, use_color=use_color)
 
         self.images = []  # ordered list of image ids
-        self._image_set = set()
+        self._image_set = set()  # set of image ids
+
+        self._last_known_last_modified_ticks = {}  # image id -> int
 
         # these are the pointers the layer passes to gl
         self.vertices = numpy.array([], dtype=float)
@@ -107,19 +109,23 @@ class ImageLayer(_Layer):
         self._to_remove = []
         self._to_add = []
 
-    def update(self, sprite_id):
+    def update(self, sprite_id, last_mod_time):
         assert_int(sprite_id)
         if sprite_id in self._image_set:
-            self._dirty_sprites.append(sprite_id)
+            if last_mod_time > self._last_known_last_modified_ticks[sprite_id]:
+                self._dirty_sprites.append(sprite_id)
         else:
             self._image_set.add(sprite_id)
             self._to_add.append(sprite_id)
+
+        self._last_known_last_modified_ticks[sprite_id] = last_mod_time
 
     def remove(self, sprite_id):
         assert_int(sprite_id)
         if sprite_id in self._image_set:
             self._image_set.remove(sprite_id)
             self._to_remove.append(sprite_id)
+            del self._last_known_last_modified_ticks[sprite_id]
 
     def is_dirty(self):
         return len(self._dirty_sprites) + len(self._to_add) + len(self._to_remove) > 0
@@ -139,11 +145,14 @@ class ImageLayer(_Layer):
     def color_stride(self):
         return 4 * 3
 
-    def rebuild(self, sprite_lookup):
+    def rebuild(self, sprite_info_lookup):
         if len(self._to_remove) > 0:
+            # this is all here to handle the case where you add and remove a sprite on the same frame
             for sprite_id in self._to_remove:
                 if sprite_id in self._image_set:
                     self._image_set.remove(sprite_id)
+                if sprite_id in self._last_known_last_modified_ticks:
+                    del self._last_known_last_modified_ticks[sprite_id]
 
             util.Utils.remove_all_from_list_in_place(self.images, self._to_remove)
             util.Utils.remove_all_from_list_in_place(self._to_add, self._to_remove)
@@ -156,7 +165,7 @@ class ImageLayer(_Layer):
         self._dirty_sprites.clear()
 
         if self.is_sorted():
-            self.images.sort(key=lambda x: -sprite_lookup[x].depth())
+            self.images.sort(key=lambda x: -sprite_info_lookup[x].sprite.depth())
 
         n_sprites = len(self.images)
 
@@ -167,8 +176,9 @@ class ImageLayer(_Layer):
         if self.is_color():
             self.colors.resize(self.color_stride() * n_sprites, refcheck=False)
 
+        # TODO - we only need to iterate over dirty indices here
         for i in range(0, n_sprites):
-            sprite = sprite_lookup[self.images[i]]
+            sprite = sprite_info_lookup[self.images[i]].sprite
             sprite.add_urself(
                 i,
                 self.vertices,
@@ -203,6 +213,10 @@ class ImageLayer(_Layer):
 
     def get_num_sprites(self):
         return len(self.images)
+
+    def __repr__(self):
+        return "{}({}, {}, {}, {})".format(type(self).__name__, self.get_layer_id(), self.get_layer_depth(),
+                                           self.is_sorted(), self.is_color())
 
 
 class PolygonLayer(ImageLayer):

@@ -6,6 +6,8 @@ import math
 import re
 import traceback
 
+import src.engine.globaltimer as globaltimer
+
 
 def printOpenGLError():
     err = glGetError()
@@ -101,10 +103,16 @@ def _get_best_render_engine(glsl_version):
         return RenderEngine130()
 
 
+class _SpriteInfoBundle:
+
+    def __init__(self, sprite, last_updated_tick):
+        self.sprite = sprite
+        self.last_updated_tick = last_updated_tick
+
 class RenderEngine:
 
     def __init__(self):
-        self.sprite_lookup = {}  # (int) id -> _Sprite
+        self.sprite_info_lookup = {}  # (int) id -> _SpriteInfoBundle
         self.camera_pos = [0, 0]
         self.size = (0, 0)
         self.min_size = (0, 0)
@@ -117,8 +125,6 @@ class RenderEngine:
         self.tex_id = None
 
         self.raw_texture_data = (None, 0, 0)  # data, width, height
-
-        self._surface = None  # only storing this for (rare, hopefully) pygame-style draw calls
         
     def add_layer(self, layer):
         self.layers[layer.get_layer_id()] = layer
@@ -141,16 +147,6 @@ class RenderEngine:
         
     def set_layer_offset(self, layer_id, offs_x, offs_y):
         self.layers[layer_id].set_offset(offs_x, offs_y)
-        
-    def clear_all_sprites(self):
-        for uid in self.sprite_lookup:
-            for l in self.layers.values():
-                l.remove(uid)
-        self.sprite_lookup.clear()
-        
-    def clear_sprites(self, sprites):
-        for spr in sprites:
-            self.remove(spr)
 
     def resize(self, w, h, px_scale=None):
         if px_scale is not None:
@@ -248,8 +244,6 @@ class RenderEngine:
         if img_data is not None:
             self.set_texture(img_data, w, h, tex_id=self.tex_id)
 
-        self._surface = new_surface
-
     def set_texture(self, img_data, width, height, tex_id=None):
         """
             img_data: image data in string RGBA format.
@@ -278,20 +272,6 @@ class RenderEngine:
         self.camera_pos[0] = x - (self.size[0] // 2) if center else 0
         self.camera_pos[1] = y - (self.size[1] // 2) if center else 0
         
-    def remove(self, sprite):
-        if sprite is None:
-            return
-
-        if sprite.is_parent():
-            for child_sprite in sprite.all_sprites():
-                self.remove(child_sprite)
-        else:
-            uid = sprite.uid()
-            if uid in self.sprite_lookup:
-                del self.sprite_lookup[uid]
-
-            self.layers[sprite.layer_id()].remove(uid)
-        
     def update(self, sprite):
         if sprite is None:
             return
@@ -301,22 +281,37 @@ class RenderEngine:
                 self.update(child_sprite)
         else:
             uid = sprite.uid()
-            self.sprite_lookup[uid] = sprite
+            cur_tick = globaltimer.tick_count()
+
+            if uid not in self.sprite_info_lookup:
+                self.sprite_info_lookup[uid] = _SpriteInfoBundle(sprite, cur_tick)
+            else:
+                self.sprite_info_lookup[uid].sprite = sprite
+                self.sprite_info_lookup[uid].last_updated_tick = cur_tick
 
             layer = self.layers[sprite.layer_id()]
 
             if layer.accepts_sprite_type(sprite.sprite_type()):
-                layer.update(uid)
+                layer.update(uid, sprite.last_modified_tick())
             else:
-                raise ValueError("Incompatible sprite types: sprite's is {}, and layer's is {}".format(
-                    sprite.sprite_type(), layer.get_sprite_type()))
+                raise ValueError("Incompatible sprite type: {}".format(sprite.sprite_type()))
         
     def render_layers(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
+        # clear out sprites that weren't updated this tick
+        cur_tick = globaltimer.tick_count()
+        ids_to_remove = [sprite_id for sprite_id in self.sprite_info_lookup
+                         if self.sprite_info_lookup[sprite_id].last_updated_tick < cur_tick]
+
+        for sprite_id in ids_to_remove:
+            sprite_info = self.sprite_info_lookup[sprite_id]
+            self.layers[sprite_info.sprite.layer_id()].remove(sprite_id)
+            del self.sprite_info_lookup[sprite_id]
+
         for layer in self.ordered_layers:
             if layer.is_dirty():
-                layer.rebuild(self.sprite_lookup)
+                layer.rebuild(self.sprite_info_lookup)
 
             if layer.get_layer_id() in self.hidden_layers:
                 continue

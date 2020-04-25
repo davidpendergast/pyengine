@@ -91,7 +91,7 @@ class DemoJunk:
 
         yield DemoJunk.fps_text_sprite
         yield DemoJunk.title_text_sprite
-        
+
         yield DemoJunk.text_box_sprite
         yield DemoJunk.text_box_text_sprite
 
@@ -469,12 +469,8 @@ def update_crappy_demo_scene(fps_for_display):
                       renderengine.get_instance().get_game_size()[1] - info_text_h - 16,
                       info_text_w, info_text_h]
     if info_text is None:
-        if DemoJunk.text_box_text_sprite is not None:
-            renderengine.get_instance().remove(DemoJunk.text_box_text_sprite)
-            DemoJunk.text_box_text_sprite = None
-        if DemoJunk.text_box_sprite is not None:
-            renderengine.get_instance().remove(DemoJunk.text_box_sprite)
-            DemoJunk.text_box_sprite = None
+        DemoJunk.text_box_text_sprite = None
+        DemoJunk.text_box_sprite = None
     else:
         wrapped_text = "\n".join(sprites.TextSprite.wrap_text_to_fit(info_text, info_text_rect[2]))
         if DemoJunk.text_box_text_sprite is None:
