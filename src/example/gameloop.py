@@ -11,6 +11,7 @@ import src.engine.sprites as sprites
 import src.engine.renderengine as renderengine
 import src.engine.layers as layers
 import src.engine.spritesheets as spritesheets
+import src.engine.globaltimer as globaltimer
 
 DEFAULT_SCREEN_SIZE = (800, 600)
 MINIMUM_SCREEN_SIZE = (800, 600)
@@ -29,7 +30,6 @@ class DemoJunk:
     world_layer_ids = [ENTITY_LAYER, SHADOW_LAYER, WALL_LAYER, FLOOR_LAYER, POLYGON_LAYER]
     ui_layer_ids = [UI_BG_LAYER, UI_FG_LAYER]
 
-    tick_count = 0
     px_scale = -1
     px_scale_options = [-1, 1, 2, 3, 4]
 
@@ -261,7 +261,6 @@ def run():
         ignore_resize_events_next_tick = False
 
         if toggled_fullscreen:
-            # print("INFO {}: toggled fullscreen".format(gs.get_instance().tick_counter))
             win = window.get_instance()
             win.set_fullscreen(not win.is_fullscreen())
 
@@ -289,7 +288,7 @@ def run():
 
             renderengine.get_instance().resize(display_w, display_h, px_scale=new_pixel_scale)
 
-        input_state.update(DemoJunk.tick_count)
+        input_state.update()
         sounds.update()
 
         if DemoJunk.is_dev() and input_state.was_pressed(pygame.K_F1):
@@ -326,9 +325,10 @@ def run():
         else:
             clock.tick(60)
 
-        DemoJunk.tick_count += 1
+        # FYI It's pretty important that the game loop calls this once per frame (for renderengine and inputs).
+        globaltimer.inc_tick_count()
 
-        if DemoJunk.tick_count % 60 == 0:
+        if globaltimer.tick_count() % 60 == 0:
             if clock.get_fps() < 55 and DemoJunk.is_dev() and not slo_mo_mode:
                 print("WARN: fps drop: {} ({} sprites)".format(round(clock.get_fps() * 10) / 10.0,
                                                                renderengine.get_instance().count_sprites()))
@@ -369,7 +369,7 @@ def update_crappy_demo_scene(fps_for_display):
     while len(DemoJunk.cube_line_sprites) < 12:
         DemoJunk.cube_line_sprites.append(sprites.LineSprite(DemoJunk.POLYGON_LAYER, thickness=DemoJunk.cube_line_thickness))
 
-    anim_tick = DemoJunk.tick_count // 16
+    anim_tick = globaltimer.tick_count() // 16
 
     speed = 2
     dx = 0

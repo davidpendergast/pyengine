@@ -1,4 +1,6 @@
 
+import src.engine.globaltimer as globaltimer
+
 _INSTANCE = None
 
 
@@ -111,9 +113,12 @@ class InputState:
                     return True
         return False
         
-    def update(self, current_time):
-        """Remember that this gets called *after* inputs are passed in, and *before* game updates occur."""
-        self._current_time = current_time
+    def update(self):
+        """
+        Relies on globaltimer.tick_count().
+        Remember that this gets called *after* inputs are passed in, and *before* game updates occur.
+        """
+        self._current_time = globaltimer.tick_count()
 
         self._pressed_this_frame.clear()
         self._pressed_this_frame.update(self._pressed_last_frame)

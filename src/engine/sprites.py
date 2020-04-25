@@ -26,6 +26,7 @@ class _Sprite:
         self._sprite_type = sprite_type
         self._layer_id = layer_id
         self._uid = gen_unique_id() if uid is None else uid
+        self._last_modified_tick = 0
 
     def sprite_type(self):
         return self._sprite_type
