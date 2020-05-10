@@ -29,12 +29,9 @@ class WindowState:
         self._cached_fullscreen_size = None
 
     def _get_mods(self):
-        mods = pygame.OPENGL | pygame.HWSURFACE
+        mods = pygame.OPENGL | pygame.HWSURFACE | pygame.DOUBLEBUF
 
-        if configs.enable_vsync:
-            mods = pygame.DOUBLEBUF | mods
-
-        if self.is_fullscreen() or configs.allow_window_resize:
+        if configs.allow_window_resize:
             mods = pygame.RESIZABLE | mods
 
         if self.is_fullscreen():

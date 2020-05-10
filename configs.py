@@ -25,8 +25,6 @@ minimum_auto_pixel_scale = 1
 target_fps = 60
 precise_fps = False
 
-enable_vsync = True
-
 
 """ Miscellaneous """
 do_crash_reporting = True  # whether to produce a crash file when the program exits via an exception.
