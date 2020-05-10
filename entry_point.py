@@ -4,12 +4,14 @@ import os
 import pathlib
 
 import configs
+import src.example.demogame
+
 
 """
 The main entry point.
 """
 
-NAME_OF_GAME = configs.name_of_game
+game_class = src.example.demogame.DemoGame  # <--- change this to your actual game class
 
 
 def _get_crash_report_file_name():
@@ -19,11 +21,12 @@ def _get_crash_report_file_name():
 
 
 if __name__ == "__main__":
-    version_string = "?"
+    version_string = configs.version
+    name_of_game = configs.name_of_game
     try:
-        import src.example.gameloop as gameloop
-        gameloop.init(NAME_OF_GAME)
-        gameloop.run()
+        import src.engine.gameloop as gameloop
+        loop = gameloop.create_instance(game_class())
+        loop.run()
 
     except Exception as e:
         crash_file_name = _get_crash_report_file_name()
@@ -35,9 +38,9 @@ if __name__ == "__main__":
 
         crash_file_path = pathlib.Path("logs/" + crash_file_name)
         with open(crash_file_path, 'w') as f:
-            print("o--{}---------------o".format("-" * len(NAME_OF_GAME)), file=f)
-            print("|  {} Crash Report  |".format(NAME_OF_GAME), file=f)
-            print("o--{}---------------o".format("-" * len(NAME_OF_GAME)), file=f)
+            print("o--{}---------------o".format("-" * len(name_of_game)), file=f)
+            print("|  {} Crash Report  |".format(name_of_game), file=f)
+            print("o--{}---------------o".format("-" * len(name_of_game)), file=f)
             print("\nVersion: {}\n".format(version_string), file=f)
 
             traceback.print_exc(file=f)

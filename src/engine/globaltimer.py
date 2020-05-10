@@ -15,3 +15,7 @@ def inc_tick_count():
     """
     global _TICK_COUNT
     _TICK_COUNT += 1
+
+
+def get_fps():
+    return -1
