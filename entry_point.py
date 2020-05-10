@@ -29,21 +29,22 @@ if __name__ == "__main__":
         loop.run()
 
     except Exception as e:
-        crash_file_name = _get_crash_report_file_name()
-        print("INFO: generating crash file {}".format(crash_file_name))
+        if configs.do_crash_reporting:
+            crash_file_name = _get_crash_report_file_name()
+            print("INFO: generating crash file {}".format(crash_file_name))
 
-        directory = os.path.dirname("logs/")
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+            directory = os.path.dirname("logs/")
+            if not os.path.exists(directory):
+                os.makedirs(directory)
 
-        crash_file_path = pathlib.Path("logs/" + crash_file_name)
-        with open(crash_file_path, 'w') as f:
-            print("o--{}---------------o".format("-" * len(name_of_game)), file=f)
-            print("|  {} Crash Report  |".format(name_of_game), file=f)
-            print("o--{}---------------o".format("-" * len(name_of_game)), file=f)
-            print("\nVersion: {}\n".format(version_string), file=f)
+            crash_file_path = pathlib.Path("logs/" + crash_file_name)
+            with open(crash_file_path, 'w') as f:
+                print("o--{}---------------o".format("-" * len(name_of_game)), file=f)
+                print("|  {} Crash Report  |".format(name_of_game), file=f)
+                print("o--{}---------------o".format("-" * len(name_of_game)), file=f)
+                print("\nVersion: {}\n".format(version_string), file=f)
 
-            traceback.print_exc(file=f)
+                traceback.print_exc(file=f)
 
         raise e
 

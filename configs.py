@@ -14,7 +14,9 @@ auto_resize_pixel_scale = True  # whether to automatically update the pixel scal
 minimum_auto_pixel_scale = 1
 
 target_fps = 60
-precise_fps = False  # if enabled, will hog the CPU to ensure the frame rate is correct
+precise_fps = False  # if enabled, will hog the CPU to ensure the frame rate is correct.
 
-is_dev = os.path.exists(".gitignore")  # elegant but yikes
+do_crash_reporting = True  # whether to produce a crash file when the program exits via an exception.
+
+is_dev = os.path.exists(".gitignore")  # yikes
 

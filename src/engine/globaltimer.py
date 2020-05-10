@@ -1,6 +1,10 @@
-
+import time
 
 _TICK_COUNT = 0
+
+# used for fps tracking
+_TICK_TIMES = [time.time()] * 10
+_TICK_TIME_IDX = 0
 
 
 def tick_count():
@@ -16,6 +20,17 @@ def inc_tick_count():
     global _TICK_COUNT
     _TICK_COUNT += 1
 
+    global _TICK_TIME_IDX
+    _TICK_TIMES[_TICK_TIME_IDX] = time.time()
+    _TICK_TIME_IDX = (_TICK_TIME_IDX + 1) % len(_TICK_TIMES)  # circular list
+
 
 def get_fps():
-    return -1
+    """returns: average fps of the last several frames."""
+    min_time = min(_TICK_TIMES)
+    max_time = max(_TICK_TIMES)
+    elapsed_time = max_time - min_time
+    if elapsed_time == 0:
+        return 999
+    else:
+        return (len(_TICK_TIMES) - 1) / elapsed_time
