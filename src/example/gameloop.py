@@ -12,9 +12,7 @@ import src.engine.renderengine as renderengine
 import src.engine.layers as layers
 import src.engine.spritesheets as spritesheets
 import src.engine.globaltimer as globaltimer
-
-DEFAULT_SCREEN_SIZE = (800, 600)
-MINIMUM_SCREEN_SIZE = (800, 600)
+import configs
 
 
 # REPLACE with real stuff, organized better
@@ -149,13 +147,13 @@ def init(name_of_game):
     window_icon = pygame.image.load(Utils.resource_path("assets/icon.png"))
     pygame.display.set_icon(window_icon)
 
-    window.create_instance(window_size=DEFAULT_SCREEN_SIZE, min_size=MINIMUM_SCREEN_SIZE)
+    window.create_instance(window_size=configs.default_window_size, min_size=configs.minimum_window_size)
     window.get_instance().set_caption(name_of_game)
     window.get_instance().show()
 
     render_eng = renderengine.create_instance()
-    render_eng.init(*DEFAULT_SCREEN_SIZE)
-    render_eng.set_min_size(*MINIMUM_SCREEN_SIZE)
+    render_eng.init(*configs.default_window_size)
+    render_eng.set_min_size(*configs.minimum_window_size)
 
     # REPLACE with a call to a function that builds the real assets surface
     sprite_atlas = spritesheets.create_instance()
@@ -185,21 +183,21 @@ def init(name_of_game):
 
     inputs.create_instance()
 
-    px_scale = _calc_pixel_scale(DEFAULT_SCREEN_SIZE)
+    px_scale = _calc_pixel_scale(window.get_instance().get_display_size())
     render_eng.set_pixel_scale(px_scale)
 
     DemoJunk.px_scale = px_scale
 
 
-def _calc_pixel_scale(screen_size, px_scale_opt=-1, max_scale=4):
-    global DEFAULT_SCREEN_SIZE
-    default_w = DEFAULT_SCREEN_SIZE[0]
-    default_h = DEFAULT_SCREEN_SIZE[1]
-    default_scale = 2
+def _calc_pixel_scale(screen_size):
+    if configs.auto_resize_pixel_scale:
+        screen_w, screen_h = screen_size
+        optimal_w = configs.optimal_window_size[0]
+        optimal_h = configs.optimal_window_size[1]
 
-    screen_w, screen_h = screen_size
-
-    if px_scale_opt <= 0:
+        optimal_scale = configs.optimal_pixel_scale
+        min_scale = configs.minimum_auto_pixel_scale
+        max_scale = min(int(screen_w / optimal_w + 1), int(screen_h / optimal_h + 1))
 
         # when the screen is large enough to fit this quantity of (minimal) screens at a
         # particular scaling setting, that scale is considered good enough to switch to.
@@ -207,17 +205,17 @@ def _calc_pixel_scale(screen_size, px_scale_opt=-1, max_scale=4):
         step_up_x_ratio = 1.0
         step_up_y_ratio = 1.0
 
-        best = default_scale
-        for i in range(default_scale + 1, max_scale + 1):
-            if (default_w / default_scale * i * step_up_x_ratio <= screen_w
-                    and default_h / default_scale * i * step_up_y_ratio <= screen_h):
+        best = min_scale
+        for i in range(min_scale, max_scale + 1):
+            if (optimal_w / optimal_scale * i * step_up_x_ratio <= screen_w
+                    and optimal_h / optimal_scale * i * step_up_y_ratio <= screen_h):
                 best = i
             else:
                 break
 
         return best
     else:
-        return int(px_scale_opt)
+        return configs.optimal_pixel_scale
 
 
 def run():
@@ -307,10 +305,13 @@ def run():
             else:
                 print("WARN: illegal pixel scale={}, reverting to default".format(current_scale))
                 new_scale = options[0]
-            DemoJunk.px_scale = new_scale
 
-            display_size = window.get_instance().get_display_size()
-            new_pixel_scale = _calc_pixel_scale(display_size, px_scale_opt=new_scale)
+            DemoJunk.px_scale = new_scale
+            if DemoJunk.px_scale <= 0:
+                display_size = window.get_instance().get_display_size()
+                new_pixel_scale = _calc_pixel_scale(display_size)
+            else:
+                new_pixel_scale = DemoJunk.px_scale
             renderengine.get_instance().set_pixel_scale(new_pixel_scale)
 
         renderengine.get_instance().set_clear_color((0.66, 0.66, 0.66))
@@ -324,15 +325,15 @@ def run():
 
         slo_mo_mode = DemoJunk.is_dev() and input_state.is_held(pygame.K_TAB)
         if slo_mo_mode:
-            clock.tick(15)
+            clock.tick(configs.target_fps // 4)
         else:
-            clock.tick(60)
+            clock.tick(configs.target_fps)
 
         # FYI It's pretty important that the game loop calls this once per frame (for renderengine and inputs).
         globaltimer.inc_tick_count()
 
-        if globaltimer.tick_count() % 60 == 0:
-            if clock.get_fps() < 55 and DemoJunk.is_dev() and not slo_mo_mode:
+        if globaltimer.tick_count() % configs.target_fps == 0:
+            if clock.get_fps() < 0.9 * configs.target_fps and DemoJunk.is_dev() and not slo_mo_mode:
                 print("WARN: fps drop: {} ({} sprites)".format(round(clock.get_fps() * 10) / 10.0,
                                                                renderengine.get_instance().count_sprites()))
 

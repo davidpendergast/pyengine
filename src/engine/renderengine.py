@@ -219,6 +219,9 @@ class RenderEngine:
         return self.shader
 
     def init(self, w, h):
+        """
+        params w, h: The dimension of the window (not the "game size"!)
+        """
         glShadeModel(GL_FLAT)
         glClearColor(0.5, 0.5, 0.5, 0.0)
 

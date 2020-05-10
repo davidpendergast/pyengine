@@ -3,11 +3,13 @@ import datetime
 import os
 import pathlib
 
+import configs
+
 """
 The main entry point.
 """
 
-NAME_OF_GAME = "GameName"
+NAME_OF_GAME = configs.name_of_game
 
 
 def _get_crash_report_file_name():
