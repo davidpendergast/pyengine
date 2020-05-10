@@ -23,6 +23,7 @@ def _get_crash_report_file_name():
 if __name__ == "__main__":
     version_string = configs.version
     name_of_game = configs.name_of_game
+
     try:
         import src.engine.gameloop as gameloop
         loop = gameloop.create_instance(game_class())

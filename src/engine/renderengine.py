@@ -109,6 +109,7 @@ class _SpriteInfoBundle:
         self.sprite = sprite
         self.last_updated_tick = last_updated_tick
 
+
 class RenderEngine:
 
     def __init__(self):

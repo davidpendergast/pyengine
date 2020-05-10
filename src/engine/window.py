@@ -1,5 +1,6 @@
 
 import pygame
+import configs
 
 
 _INSTANCE = None
@@ -28,7 +29,13 @@ class WindowState:
         self._cached_fullscreen_size = None
 
     def _get_mods(self):
-        mods = pygame.OPENGL | pygame.DOUBLEBUF | pygame.HWSURFACE | pygame.RESIZABLE
+        mods = pygame.OPENGL | pygame.HWSURFACE
+
+        if configs.enable_vsync:
+            mods = pygame.DOUBLEBUF | mods
+
+        if self.is_fullscreen() or configs.allow_window_resize:
+            mods = pygame.RESIZABLE | mods
 
         if self.is_fullscreen():
             mods = pygame.FULLSCREEN | mods

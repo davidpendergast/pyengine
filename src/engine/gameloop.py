@@ -1,6 +1,4 @@
 import pygame
-import math
-import random
 
 from src.utils.util import Utils
 import src.engine.sounds as sounds
@@ -29,6 +27,7 @@ class _GameLoop:
 
     def __init__(self, game):
         self._game = game
+        self._clock = pygame.time.Clock()
 
         print("INFO: pygame version: " + pygame.version.ver)
         print("INFO: initializing sounds...")
@@ -78,7 +77,7 @@ class _GameLoop:
 
             optimal_scale = configs.optimal_pixel_scale
             min_scale = configs.minimum_auto_pixel_scale
-            max_scale = min(int(screen_w / optimal_w + 1), int(screen_h / optimal_h + 1))
+            max_scale = min(int(screen_w / optimal_w * optimal_scale + 1), int(screen_h / optimal_h * optimal_scale + 1))
 
             # when the screen is large enough to fit this quantity of (minimal) screens at a
             # particular scaling setting, that scale is considered good enough to switch to.
@@ -99,7 +98,6 @@ class _GameLoop:
             return configs.optimal_pixel_scale
 
     def run(self):
-        clock = pygame.time.Clock()
         running = True
 
         ignore_resize_events_next_tick = False
@@ -137,7 +135,7 @@ class _GameLoop:
             ignore_resize_events_this_tick = ignore_resize_events_next_tick
             ignore_resize_events_next_tick = False
 
-            if input_state.was_pressed(pygame.K_F4):
+            if input_state.was_pressed(pygame.K_F4) and configs.allow_fullscreen:
                 win = window.get_instance()
                 win.set_fullscreen(not win.is_fullscreen())
 
@@ -183,27 +181,32 @@ class _GameLoop:
 
             renderengine.get_instance().set_clear_color((0.66, 0.66, 0.66))
             renderengine.get_instance().render_layers()
+
             pygame.display.flip()
 
             slo_mo_mode = configs.is_dev and input_state.is_held(pygame.K_TAB)
             target_fps = configs.target_fps if not slo_mo_mode else configs.target_fps // 4
 
-            # TODO - the built-in timer is a bit inaccurate and causes jerkiness on a 60hz monitor
-            # TODO - should investigate alternatives.
-            if configs.precise_fps:
-                clock.tick_busy_loop(target_fps)
-            else:
-                clock.tick(target_fps)
+            self._wait_until_next_frame(target_fps)
 
             globaltimer.inc_tick_count()
 
             if globaltimer.tick_count() % configs.target_fps == 0:
-                if clock.get_fps() < 0.9 * configs.target_fps and configs.is_dev and not slo_mo_mode:
-                    print("WARN: fps drop: {} ({} sprites)".format(round(clock.get_fps() * 10) / 10.0,
+                if globaltimer.get_fps() < 0.9 * configs.target_fps and configs.is_dev and not slo_mo_mode:
+                    print("WARN: fps drop: {} ({} sprites)".format(round(globaltimer.get_fps() * 10) / 10.0,
                                                                    renderengine.get_instance().count_sprites()))
 
         print("INFO: quitting game")
         pygame.quit()
+
+    def _wait_until_next_frame(self, target_fps):
+        if configs.precise_fps:
+            self._clock.tick_busy_loop(target_fps)
+        else:
+            self._clock.tick(target_fps)
+
+
+
 
 
 
