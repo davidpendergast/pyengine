@@ -12,6 +12,8 @@ minimum_window_size = (250, 150)  # if the window is smaller than this, it will 
 allow_fullscreen = True
 allow_window_resize = True
 
+clear_color = (0.66, 0.66, 0.66)
+
 
 """ Pixel Scaling """
 optimal_window_size = (640, 300)
