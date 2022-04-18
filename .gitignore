@@ -7,3 +7,4 @@
 logs/*
 *.DS_Store
 texture_atlas.png
+old_stuff/*
