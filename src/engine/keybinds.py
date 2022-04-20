@@ -7,9 +7,13 @@ import src.utils.util as util
 _INSTANCE = None
 
 
-def create_instance():
+def create_instance() -> 'KeyBindings':
     global _INSTANCE
     _INSTANCE = KeyBindings()
+    return _INSTANCE
+
+
+def get_instance() -> 'KeyBindings':
     return _INSTANCE
 
 
@@ -68,18 +72,16 @@ class KeyBindings:
             return self._binds[action_code]
 
 
-def get_instance() -> KeyBindings:
-    return _INSTANCE
-
-
 _MOD_TO_KEYS_MAPPING = {}  # mod_id -> list of key_ids (ex. KMOD_CTRL -> [K_LCTRL, R_RCTRL])
 _KEY_TO_MOD_MAPPING = {}   # key_id -> mod_ids (ex. R_RCTRL -> [KMOD_CTRL, KMOD_RCTRL])
+
 
 def _add_mod_mapping(mod_id, key_ids):
     key_ids = util.listify(key_ids)
     _MOD_TO_KEYS_MAPPING[mod_id] = key_ids
     for k in key_ids:
         _KEY_TO_MOD_MAPPING[k] = mod_id
+
 
 _add_mod_mapping(pygame.KMOD_CTRL, [pygame.K_LCTRL, pygame.K_RCTRL])
 _add_mod_mapping(pygame.KMOD_LCTRL, pygame.K_LCTRL)
@@ -93,11 +95,13 @@ _add_mod_mapping(pygame.KMOD_SHIFT, [pygame.K_LSHIFT, pygame.K_RSHIFT])
 _add_mod_mapping(pygame.KMOD_LSHIFT, pygame.K_LSHIFT)
 _add_mod_mapping(pygame.KMOD_RSHIFT, pygame.K_RSHIFT)
 
+
 def modifier_to_keys(mod_id):
     if mod_id in _MOD_TO_KEYS_MAPPING:
         return _MOD_TO_KEYS_MAPPING[mod_id]
     else:
         return []
+
 
 def key_to_modifiers(key_id):
     if key_id in _KEY_TO_MOD_MAPPING:
@@ -225,7 +229,7 @@ class Binding:
             return min_time
         else:
             for m in self.mods:
-                min_time = min(min_time, modifier_to_key(m))
+                min_time = min(min_time, input_state.time_held(modifier_to_keys(m)))
                 if min_time < 0:
                     return min_time
         return min_time

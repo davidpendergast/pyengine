@@ -3,7 +3,6 @@ import traceback
 
 import src.engine.sprites as sprites
 import src.utils.util as util
-import src.utils.artutils as artutils
 
 
 class SpriteSheet:
@@ -115,6 +114,14 @@ class DefaultFontMono(FontSheet):
                     self.set_char(c, sprites.ImageModel(rect[0], rect[1], rect[2], rect[3], offset=start_pos))
 
 
+def _find_surface_data_bounds(max_rect, sheet: pygame.Surface, min_alpha=1):
+    subrect = sheet.subsurface(max_rect).get_bounding_rect(min_alpha=min_alpha)
+    if subrect is None or subrect[2] == 0 or subrect[3] == 0:
+        return [max_rect[0], max_rect[1], 0, 0]
+    else:
+        return [max_rect[0] + subrect[0], max_rect[1] + subrect[1], subrect[2], subrect[3]]
+
+
 class DefaultFont(DefaultFontMono):
 
     SHEET_ID = "default_font"
@@ -123,9 +130,10 @@ class DefaultFont(DefaultFontMono):
         DefaultFontMono.__init__(self, DefaultFont.SHEET_ID)
 
     def xform_char_rect(self, rect, sheet):
-        r = artutils.find_bounding_rect(rect, sheet, keep_vert=True)
-        if r is not None and r[2] > 0:
-            return util.rect_expand(r, right_expand=1)
+        r = _find_surface_data_bounds(rect, sheet)
+        if r[2] > 0:
+            # preserve vertical dims of sprite
+            return util.rect_expand([r[0], rect[1], r[2], rect[3]], right_expand=1)
         else:
             return None
 
@@ -156,7 +164,8 @@ class DefaultFontSmall(FontSheet):
             for x in range(0, 32):
                 c = chr(y * 32 + x)
                 grid_cell = [x * char_w, y * char_h, char_w, char_h]
-                true_rect = artutils.find_bounding_rect(grid_cell, sheet, keep_vert=True)
+                r = _find_surface_data_bounds(grid_cell, sheet)
+                true_rect = [r[0], grid_cell[1], r[2], grid_cell[3]]
                 if true_rect[2] == 0:
                     self.set_char(c, None)
                 else:

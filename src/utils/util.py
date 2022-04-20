@@ -1442,7 +1442,7 @@ def apply_ascii_edits_to_text(text, ascii_edits, cursor_pos=-1, max_len=None, al
     return (pre_text + post_text, cursor_pos)
 
 
-class SpacialHashMap:
+class SpatialHashMap:
 
     def __init__(self, cellsize):
         self._cellsize = cellsize
@@ -1640,33 +1640,3 @@ def checksum(blob, m=982451653, strict=True):
             raise ValueError("blob has illegal type: {}".format(blob))
         else:
             return string_checksum(str(blob), m=m)
-
-
-if __name__ == "__main__":
-    hashmap = SpacialHashMap(10)
-    hashmap.put("rect1", [0, 0, 15, 15], value="A")
-    hashmap.put("rect2", [10, 10, 20, 20], value="B")
-    hashmap.pretty_print()
-    print([x for x in hashmap.all_items_at_point((0, 5))])
-
-
-if __name__ == "__main__" and False:
-    sizes = [(5, 5), (2, 3), (7, 2), (1, 5), (9, 4), (3, 16), (3, 3), (3, 4)]
-    packed, bound = pack_rects_into_smallest_rect(sizes)
-    print("sizes={}".format(sizes))
-    print("packed into {}: ={}".format(bound, packed))
-
-    for y in range(0, bound[1]):
-        line = []
-        for x in range(0, bound[0]):
-            c = " -"
-            for i in range(0, len(packed)):
-                if rect_contains(packed[i], (x, y)):
-                    if c == " -":
-                        c = str(i) if i > 9 else "0" + str(i)
-                    else:
-                        c = "XX"
-            line.append(c)
-        print(" ".join(line))
-
-

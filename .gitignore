@@ -5,6 +5,7 @@
 *.wav
 *.lnk
 logs/*
+dist/*
 *.DS_Store
 texture_atlas.png
-old_stuff/*
+output.spec

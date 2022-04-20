@@ -40,6 +40,5 @@ key_repeat_period = 5  # after the delay has passed, the key will be typed every
 
 
 """ 3D Debug """
-rainbow_3d = False
 wireframe_3d = False
 
