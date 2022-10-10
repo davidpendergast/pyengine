@@ -1,7 +1,6 @@
 from OpenGL.GL import *
 
 import numpy
-import math
 
 import src.engine.layers as layers
 import src.engine.sprites as sprites
@@ -300,9 +299,9 @@ class BillboardSprite3D(Sprite3D):
                new_xscale=None, new_yscale=None, new_zscale=None, new_scale=None,
                new_color=None, new_horz_billboard=None, new_vert_billboard=None):  # XXX just ignore this i know it's bad
         res = super().update(new_model, new_x=new_x, new_y=new_y, new_z=new_z, new_position=new_position,
-               new_xrot=new_xrot, new_yrot=new_yrot, new_zrot=new_zrot, new_rotation=new_rotation,
-               new_xscale=new_xscale, new_yscale=new_yscale, new_zscale=new_zscale, new_scale=new_scale,
-               new_color=new_color)
+                             new_xrot=new_xrot, new_yrot=new_yrot, new_zrot=new_zrot, new_rotation=new_rotation,
+                             new_xscale=new_xscale, new_yscale=new_yscale, new_zscale=new_zscale, new_scale=new_scale,
+                             new_color=new_color)
 
         did_change = False
         horz_billboard = self._horz_billboard

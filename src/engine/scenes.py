@@ -5,21 +5,20 @@ import src.engine.cursors as cursors
 import src.engine.inputs as inputs
 
 
-_INSTANCE = None
-
-
-def set_instance(manager: 'SceneManager') -> 'SceneManager':
-    global _INSTANCE
-    _INSTANCE = manager
-    return _INSTANCE
+_SINGLETON: 'SceneManager' = None
 
 
 def create_instance(initial_scene: 'Scene') -> 'SceneManager':
-    return set_instance(SceneManager(initial_scene))
+    global _SINGLETON
+    if _SINGLETON is not None:
+        raise ValueError("scene manager has already been initialized.")
+    else:
+        _SINGLETON = SceneManager(initial_scene)
+        return _SINGLETON
 
 
 def get_instance() -> 'SceneManager':
-    return _INSTANCE
+    return _SINGLETON
 
 
 class Scene:
@@ -33,8 +32,8 @@ class Scene:
     def is_active(self):
         return self.get_manager().get_active_scene() == self
 
-    def jump_to_scene(self, next_scene, do_fade=True):
-        self.get_manager().set_next_scene(next_scene, do_fade=do_fade)
+    def jump_to_scene(self, next_scene, delay=0):
+        self.get_manager().set_next_scene(next_scene, delay=delay)
 
     def all_sprites(self):
         raise NotImplementedError()
@@ -70,7 +69,7 @@ class Scene:
 
 class SceneManager:
 
-    def __init__(self, cur_scene):
+    def __init__(self, cur_scene: Scene):
         if cur_scene is None:
             raise ValueError("current scene can't be None")
         cur_scene._manager = self

@@ -4,17 +4,18 @@ import traceback
 
 import src.utils.util as util
 
-_INSTANCE = None
+
+_SINGLETON: 'KeyBindings' = None
 
 
 def create_instance() -> 'KeyBindings':
-    global _INSTANCE
-    _INSTANCE = KeyBindings()
-    return _INSTANCE
+    global _SINGLETON
+    _SINGLETON = KeyBindings()
+    return _SINGLETON
 
 
 def get_instance() -> 'KeyBindings':
-    return _INSTANCE
+    return _SINGLETON
 
 
 class KeyBindings:

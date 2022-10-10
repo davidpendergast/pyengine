@@ -33,6 +33,7 @@ precise_fps = False
 """ Miscellaneous """
 start_in_compat_mode = False
 do_crash_reporting = True  # whether to produce a crash file when the program exits via an exception.
+
 is_dev = os.path.exists(".gitignore")  # yikes
 
 key_repeat_delay = 30  # keys held for longer than this many ticks will start to be typed repeatedly

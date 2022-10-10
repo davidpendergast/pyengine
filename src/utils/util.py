@@ -7,6 +7,7 @@ import sys
 import heapq
 import traceback
 import copy
+import typing
 
 import appdirs
 
@@ -92,6 +93,7 @@ def angle_between(v1, v2, signed=False, vn=(0, 0, 1)):
             if dot_prod(cross, vn) <= 0:
                 angle = -angle
         return angle
+
 
 def rotate_towards(v1, v2, rad):
     if angle_between(v1, v2) == 0:
@@ -995,38 +997,91 @@ def opposite_paren(paren_char):
         return paren_char
 
 
-def make_json_pretty(json_string, _rm_newlines=True):
-    """removes newlines between elements of innermost lists."""
+def get_unique_strings(avoid, k=1, prefix="u", suffix="", cnt=0):
+    res = []
+    test = f"{prefix}{cnt}{suffix}"
+    while len(res) < k:
+        if test not in avoid:
+            res.append(test)
+        cnt += 1
+        test = f"{prefix}{cnt}{suffix}"
 
-    def find_close_paren(string, index, open='(', closed=')'):
-        balance = 0
-        for i in range(index, len(string)):
-            if string[i] == open:
-                balance += 1
-            elif string[i] == closed:
-                balance -= 1
-            if balance == 0:
-                return i
-        raise ValueError("Unbalanced parenthesis in " + string)
+    return res
+
+
+def _find_close_paren(string, index, open='(', closed=')'):
+    balance = 0
+    for i in range(index, len(string)):
+        if string[i] == open:
+            balance += 1
+        elif string[i] == closed:
+            balance -= 1
+        if balance == 0:
+            return i
+    raise ValueError("Unbalanced parenthesis in " + string)
+
+
+def make_json_pretty(json_string, small_list_thresh=8, _rm_newlines=True, _preprocess=True):
+    """Removes newlines between elements of innermost lists."""
+
+    str_to_repl = {}
+    list_to_repl = {}
+
+    if _preprocess:
+        avoid = set()
+        str_m = re.findall(r'"(?:\\"|[^"])*"', json_string)
+        if str_m:
+            for s in str_m:
+                avoid.add(s)
+                str_to_repl[s] = None
+            unique_strs = get_unique_strings(avoid, prefix="\"str", suffix="\"", k=len(str_to_repl))
+            for idx, s in enumerate(str_to_repl):
+                avoid.add(unique_strs[idx])
+                str_to_repl[s] = unique_strs[idx]
+        for s in str_to_repl:
+            json_string = json_string.replace(s, str_to_repl[s])
+
+        list_m = re.findall(r'[\[{][^\[{}\]]*[}\]]', json_string)
+        if list_m:
+            for l in list_m:
+                if l.count(",") + 1 <= small_list_thresh:
+                    avoid.add(l)
+                    list_to_repl[l] = None
+            unique_strs = get_unique_strings(avoid, prefix="\"list", suffix="\"", k=len(list_to_repl))
+            for idx, l in enumerate(list_to_repl):
+                list_to_repl[l] = unique_strs[idx]
+            list_to_repl_new = {}
+            for l in list_to_repl:
+                json_string = json_string.replace(l, list_to_repl[l])
+                l_no_newlines = re.sub(r'\s*,\s*', ", ", l)
+                l_no_newlines = re.sub(r'\s*([\[\]{}])\s*', r'\1', l_no_newlines)
+                list_to_repl_new[l_no_newlines] = list_to_repl[l]
+            list_to_repl = list_to_repl_new
 
     m = re.search('[({[]', json_string)
+
     if m is None:
         if _rm_newlines:
             # json_string has no inner collection, so remove all internal newlines
-            res = re.sub("\s*,\s*", ", ", json_string)
+            res = re.sub(r'\s*,\s*', ", ", json_string)
 
             # remove leading and trailing whitespace
-            res = re.sub("^\s*", "", res)
-            res = re.sub("\s*$", "", res)
+            res = re.sub(r'^\s*', "", res)
+            res = re.sub(r'\s*$', "", res)
         else:
             res = json_string
     else:
-        # TODO treat small lists like non-lists
         i = m.start(0)
-        j = find_close_paren(json_string, i, json_string[i], opposite_paren(json_string[i]))
-        substring = make_json_pretty(json_string[i + 1:j], True)
+        j = _find_close_paren(json_string, i, json_string[i], opposite_paren(json_string[i]))
+        substring = make_json_pretty(json_string[i + 1:j], _rm_newlines=True, _preprocess=False)
 
-        res = json_string[:i + 1] + substring + make_json_pretty(json_string[j:], False)
+        res = json_string[:i + 1] + substring + make_json_pretty(json_string[j:], _rm_newlines=False, _preprocess=False)
+
+    if _preprocess:
+        for replacements in (list_to_repl, str_to_repl):
+            rev_replacements = {v: k for (k, v) in replacements.items()}
+            for repl in rev_replacements:
+                res = res.replace(repl, rev_replacements[repl])
 
     return res
 
@@ -1047,8 +1102,16 @@ def read_bool(json_blob, key, default):
     return read_safely(json_blob, key, default, mapper=lambda x: bool(x))
 
 
-def read_map(json_blob, key, default):
-    return default  # hmmm, one day~
+def read_map(json_blob, key, default, item_mapper=lambda k, v: (k, v)):
+    def _mapper(m):
+        res = {}
+        if isinstance(m, dict):
+            for (k, v) in m.items():
+                k, v = item_mapper(k, v)
+                res[k] = v
+        else:
+            raise ValueError(f"json value '{key}' isn't a dict: {m}")
+    return read_safely(json_blob, key, default, mapper=_mapper)
 
 
 def get_value_or_create_new(the_map, key, creator):
@@ -1057,9 +1120,16 @@ def get_value_or_create_new(the_map, key, creator):
     return the_map[key]
 
 
-def prompt_question(question, accepted_answers=(), max_tries=3) -> str:
+def prompt_question_in_cmdline(question, accepted_answers=(), case_sensitive=False, max_tries=3) -> typing.Optional[str]:
     n = 0
     try:
+        ans_dict = {}
+        for ans in accepted_answers:
+            if case_sensitive:
+                ans_dict[str(ans)] = ans
+            else:
+                ans_dict[str(ans).lower()] = ans
+
         while n < max_tries:
             print()
             if len(accepted_answers) == 0:
@@ -1067,11 +1137,15 @@ def prompt_question(question, accepted_answers=(), max_tries=3) -> str:
             else:
                 ans_str = "(" + "/".join(accepted_answers) + ")"
                 answer = input("INPUT: {} {}\n".format(question, ans_str))
-                if answer in accepted_answers:  # TODO should be case insensitive probably
-                    return answer
+                if not case_sensitive:
+                    answer = answer.lower()
+
+                if answer in ans_dict:
+                    return ans_dict[answer]
                 else:
                     print("ERROR: invalid response")
             n += 1
+
     except Exception:
         print("ERROR: failed to get user input")
         traceback.print_exc()
@@ -1103,40 +1177,51 @@ def parabola_height(vertex_y, x):
 
 class JumpInfo:
 
-    def __init__(self, H, T, g, vel):
-        self.H = H
-        self.T = T
-        self.g = g
-        self.vel = vel
+    def __init__(self, h, t, g, vel):
+        self.height = h
+        self.airtime = t
+        self.gravity = g
+        self.initial_y_vel = vel
 
     def __repr__(self):
-        return "JumpInfo(H={}, T={}, g={}, vel={})".format(self.H, self.T, self.g, self.vel)
+        return f"JumpInfo(h={self.height}, t={self.airtime}, g={self.gravity}, vel={self.initial_y_vel})"
 
 
-def calc_missing_jump_info(H=None, T=None, g=None, vel=None) -> JumpInfo:
-    # fundamental equations:
-    #   g * T + vel = 0
-    #   H = (g / 4) * T ** 2 + vel / 2 * T
+def calc_missing_jump_info(height, airtime=None, gravity=None) -> JumpInfo:
+    """Given a jump's maximum height and other kinematic info, computes the remaining
+        info about the jump, such as its airtime, gravity, and initial velocity.
 
-    if H is not None and H < 0:
-        raise ValueError("H cannot be negative: {}".format(H))
-    if g is not None and g >= 0:
-        raise ValueError("g must be negative: {}".format(g))
+        Fundamental equations:
+            g * T + vel = 0
+            h = (g / 4) * T ** 2 + vel / 2 * T
 
-    # TODO - currently only works for known H, T or known H, g
-    # TODO - turns out it's not so trivial to (perfectly) solve a system of non-linear equations
-    if H is not None and T is not None:
-        a = -4 * H / (T * T)
-        vel = -a * T
-        g = a * 2
-    elif H is not None and g is not None:
-        a = g / 2
-        T = math.sqrt(-4 * H / a)
-        vel = -a * T
+        :param height: The jump's maximum height (required).
+        :param airtime: The airtime of the jump (optional).
+        :param gravity: The gravity (optional).
+    """
+
+    if height is not None and height < 0:
+        raise ValueError("height cannot be negative: {}".format(height))
+    if gravity is not None and gravity >= 0:
+        raise ValueError("gravity must be negative: {}".format(gravity))
+
+    if airtime is not None and gravity is not None:
+        airtime = None  # system is overdetermined, use gravity
+    elif airtime is None and gravity is None:
+        gravity = -9.8  # welcome to Earth
+
+    if height is not None and airtime is not None:
+        accel = -4 * height / (airtime * airtime)
+        vel = -accel * airtime
+        gravity = accel * 2
+    elif height is not None and gravity is not None:
+        accel = gravity / 2
+        airtime = math.sqrt(-4 * height / accel)
+        vel = -accel * airtime
     else:
-        raise NotImplementedError("currently only works for known H, T or known H, g")
+        raise NotImplementedError("currently only works for known h, t or known h, g")
 
-    return JumpInfo(H, T, g, vel)
+    return JumpInfo(height, airtime, gravity, vel)
 
 
 def get_shake_points(strength, duration, falloff=3, freq=6):
@@ -1640,3 +1725,4 @@ def checksum(blob, m=982451653, strict=True):
             raise ValueError("blob has illegal type: {}".format(blob))
         else:
             return string_checksum(str(blob), m=m)
+

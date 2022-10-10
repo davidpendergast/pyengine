@@ -1,0 +1,13 @@
+*---------------------------------*
+|  Ghast's Special Pygame Engine  |
+*---------------------------------*
+
+Todo:
+
+Refactoring:
+- Let you launch games directly, without going through entry_point.py
+	- But probably keep entry_point.py because make_exe sorta needs it
+- Redo song fading stuff (no need to use threads probably)
+
+New Features:
+- Joystick stuff?

@@ -1,22 +1,24 @@
 
 import pygame
+import typing
+
 import configs
 
 
-_INSTANCE = None
+_SINGLETON = None
 
 
 def create_instance(window_size=(640, 480), min_size=(0, 0), opengl_mode=True):
-    global _INSTANCE
-    if _INSTANCE is None:
-        _INSTANCE = WindowState(window_size, min_size=min_size, opengl_mode=opengl_mode)
-        return _INSTANCE
+    global _SINGLETON
+    if _SINGLETON is None:
+        _SINGLETON = WindowState(window_size, min_size=min_size, opengl_mode=opengl_mode)
+        return _SINGLETON
     else:
         raise ValueError("There is already a WindowState initialized.")
 
 
 def get_instance() -> 'WindowState':
-    return _INSTANCE
+    return _SINGLETON
 
 
 def calc_pixel_scale(screen_size):
@@ -57,7 +59,7 @@ class WindowState:
 
         self._fullscreen_size = None
 
-        self._icon_surface: pygame.Surface = None
+        self._icon_surface: typing.Optional[pygame.Surface] = None
 
         self._caption = "Game"
         self._caption_info = {}  # str -> str, for example "FPS" -> "60.0"

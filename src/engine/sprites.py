@@ -66,7 +66,7 @@ class TriangleSprite(AbstractSprite):
 
         # (._.)
         import src.engine.spritesheets as spritesheets
-        self._model = spritesheets.get_instance().get_sheet(spritesheets.WhiteSquare.SHEET_ID).get_sprite()
+        self._model = spritesheets.get_white_square_img()
 
         self._p1 = p1
         self._p2 = p2

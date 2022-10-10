@@ -5,6 +5,22 @@ import src.engine.sprites as sprites
 import src.utils.util as util
 
 
+_SINGLETON = None
+
+
+def create_instance() -> 'SpriteAtlas':
+    global _SINGLETON
+    if _SINGLETON is None:
+        _SINGLETON = SpriteAtlas()
+        return _SINGLETON
+    else:
+        raise ValueError("SpriteAtlas has already been created")
+
+
+def get_instance() -> 'SpriteAtlas':
+    return _SINGLETON
+
+
 class SpriteSheet:
 
     def __init__(self, sheet_id, filepath):
@@ -225,22 +241,6 @@ class SingleImageSheet(SpriteSheet):
         super().draw_to_atlas(atlas, sheet, start_pos=start_pos)
 
         self._img = sprites.ImageModel(0, 0, sheet.get_width(), sheet.get_height(), offset=start_pos)
-
-
-_SINGLETON = None
-
-
-def create_instance() -> 'SpriteAtlas':
-    global _SINGLETON
-    if _SINGLETON is None:
-        _SINGLETON = SpriteAtlas()
-        return _SINGLETON
-    else:
-        raise ValueError("SpriteAtlas has already been created")
-
-
-def get_instance() -> 'SpriteAtlas':
-    return _SINGLETON
 
 
 def get_default_font(mono=False, small=False) -> FontSheet:

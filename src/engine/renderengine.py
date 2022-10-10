@@ -6,7 +6,6 @@ import math
 import re
 import traceback
 import pygame
-import configs
 
 import src.engine.globaltimer as globaltimer
 import src.engine.crashreporting as crashreporting
@@ -37,6 +36,11 @@ def create_instance(glsl_version):
         _SINGLETON.set_texture_atlas(old_engine.cached_texture_atlas)
         _SINGLETON.sprite_info_lookup.update(old_engine.sprite_info_lookup)
 
+    return _SINGLETON
+
+
+def get_instance() -> 'RenderEngine':
+    """after init is called, returns the RenderEngine singleton."""
     return _SINGLETON
 
 
@@ -407,11 +411,6 @@ class RenderEngine:
         for layer in self.layers.values():
             res += layer.get_num_sprites()
         return res
-
-
-def get_instance() -> RenderEngine:
-    """after init is called, returns the RenderEngine singleton."""
-    return _SINGLETON
 
 
 class RenderEngine130(RenderEngine):
