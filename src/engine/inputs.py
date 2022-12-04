@@ -5,7 +5,7 @@ import src.engine.keybinds as keybinds
 
 import configs
 
-_INSTANCE = None  # should access this via get_instance(), at the bottom of the file
+_INSTANCE = None
 
 
 def create_instance():
@@ -15,6 +15,10 @@ def create_instance():
         return _INSTANCE
     else:
         raise ValueError("There is already an InputState initialized.")
+
+
+def get_instance() -> 'InputState':
+    return _INSTANCE
 
 
 class InputState:
@@ -244,8 +248,4 @@ class InputState:
 
         if self._end_drags_when_mouse_leaves_window and not self.mouse_in_window():
             self._mouse_down_pos.clear()
-
-
-def get_instance() -> InputState:
-    return _INSTANCE
 

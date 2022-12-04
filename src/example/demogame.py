@@ -9,6 +9,8 @@ import src.engine.sprites as sprites
 import src.engine.spritesheets as spritesheets
 import src.engine.layers as layers
 import src.utils.util as util
+import src.engine.window as window
+import src.engine.keybinds as keybinds
 
 
 class DemoSheet(spritesheets.SpriteSheet):
@@ -44,6 +46,13 @@ class DemoSheet(spritesheets.SpriteSheet):
         self.all_models.extend(self.player_models)
         self.all_models.extend(self.tv_models)
         self.all_models.extend(self.border_models)
+
+
+class UserInputs:
+    MOVE_LEFT = 0
+    MOVE_RIGHT = 1
+    MOVE_UP = 2
+    MOVE_DOWN = 3
 
 
 class DemoGame(game.Game):
@@ -134,7 +143,22 @@ class DemoGame(game.Game):
         yield layers.ImageLayer(DemoGame.ENTITY_LAYER, 15)
         yield layers.ImageLayer(DemoGame.UI_FG_LAYER, 20)
         yield layers.ImageLayer(DemoGame.UI_BG_LAYER, 19)
-        
+
+    def initialize(self):
+        keybinds.create_instance()
+
+        keybinds.get_instance().set_binding(UserInputs.MOVE_LEFT, (pygame.K_LEFT, pygame.K_a))
+        keybinds.get_instance().set_binding(UserInputs.MOVE_RIGHT, (pygame.K_RIGHT, pygame.K_d))
+        keybinds.get_instance().set_binding(UserInputs.MOVE_UP, (pygame.K_UP, pygame.K_w))
+        keybinds.get_instance().set_binding(UserInputs.MOVE_DOWN, (pygame.K_DOWN, pygame.K_s))
+
+        def toggle_opengl_mode():
+            win = window.get_instance()
+            win.set_opengl_mode(not win.is_opengl_mode())
+            win.set_caption_info("OPENGL", None if win.is_opengl_mode() else "disabled")
+
+        keybinds.get_instance().set_global_action(pygame.K_F6, "toggle_opengl", toggle_opengl_mode)
+
     def update(self):
         if len(self.entity_sprites) == 0:
             self.entity_sprites.append(sprites.ImageSprite.new_sprite(DemoGame.ENTITY_LAYER, scale=1))  # player
@@ -169,25 +193,29 @@ class DemoGame(game.Game):
 
         anim_tick = globaltimer.tick_count() // 16
 
+        kb = keybinds.get_instance()
+
         speed = 2
         dx = 0
         new_xflip = None
-        if inputs.get_instance().is_held([pygame.K_a, pygame.K_LEFT]):
+        if inputs.get_instance().is_held(kb.get_keys(UserInputs.MOVE_LEFT)):
             dx -= speed
             new_xflip = False
-        elif inputs.get_instance().is_held([pygame.K_d, pygame.K_RIGHT]):
+        elif inputs.get_instance().is_held(kb.get_keys(UserInputs.MOVE_RIGHT)):
             dx += speed
             new_xflip = True
 
         dy = 0
-        if inputs.get_instance().is_held([pygame.K_w, pygame.K_UP]):
+        if inputs.get_instance().is_held(kb.get_keys(UserInputs.MOVE_UP)):
             dy -= speed
-        elif inputs.get_instance().is_held([pygame.K_s, pygame.K_DOWN]):
+        elif inputs.get_instance().is_held(kb.get_keys(UserInputs.MOVE_DOWN)):
             dy += speed
 
         player_x = self.entity_positions[0][0] + dx
         new_y = self.entity_positions[0][1] + dy
         player_y = max(new_y, int(1.1 * DemoGame.cell_size))  # collision with walls~
+
+        screen_size = renderengine.get_instance().get_game_size()
 
         self.entity_positions[0] = (player_x, player_y)
         new_model = DemoGame.demo_sheet.player_models[anim_tick % len(DemoGame.demo_sheet.player_models)]
@@ -248,7 +276,7 @@ class DemoGame(game.Game):
             self.title_text_sprite = sprites.TextSprite(DemoGame.UI_FG_LAYER, 0, text_inset, title_text)
 
         title_text_width = self.title_text_sprite.size()[0]
-        title_text_x = renderengine.get_instance().get_game_size()[0] - title_text_width - text_inset
+        title_text_x = screen_size[0] - title_text_width - text_inset
         self.title_text_sprite = self.title_text_sprite.update(new_x=title_text_x)
 
         if self.fps_text_sprite is None:
@@ -259,10 +287,10 @@ class DemoGame(game.Game):
 
         player_to_tv_dist = util.dist(self.entity_positions[0], self.entity_positions[1])
         info_text = "There's something wrong with the TV. Maybe it's better this way." if player_to_tv_dist < 32 else None
-        info_text_w = 400 - 32
+        info_text_w = max(64, min(400, screen_size[0])) - 32
         info_text_h = 48
-        info_text_rect = [renderengine.get_instance().get_game_size()[0] // 2 - info_text_w // 2,
-                          renderengine.get_instance().get_game_size()[1] - info_text_h - 16,
+        info_text_rect = [screen_size[0] // 2 - info_text_w // 2,
+                          screen_size[1] - info_text_h - 16,
                           info_text_w, info_text_h]
         if info_text is None:
             self.text_box_text_sprite = None
@@ -316,7 +344,7 @@ class DemoGame(game.Game):
             self.cube_angle += rotation_speed
 
         # setting layer positions
-        camera_x = player_x - renderengine.get_instance().get_game_size()[0] // 2
-        camera_y = player_y - renderengine.get_instance().get_game_size()[1] // 2
+        camera_x = player_x - screen_size[0] // 2
+        camera_y = player_y - screen_size[1] // 2
         for layer_id in DemoGame.world_layer_ids:
             renderengine.get_instance().set_layer_offset(layer_id, camera_x, camera_y)

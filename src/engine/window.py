@@ -61,7 +61,7 @@ class WindowState:
 
         self._icon_surface: typing.Optional[pygame.Surface] = None
 
-        self._caption = "Game"
+        self._caption = configs.name_of_game
         self._caption_info = {}  # str -> str, for example "FPS" -> "60.0"
         self._show_caption_info = configs.is_dev
 
