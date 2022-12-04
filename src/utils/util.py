@@ -591,6 +591,17 @@ def index_into(l, val, wrap=False):
     return l[int(val * len(l))]
 
 
+def partition(l, cond):
+    l_true = []
+    l_false = []
+    for item in l:
+        if cond(item):
+            l_true.append(item)
+        else:
+            l_false.append(item)
+    return l_true, l_false
+
+
 def min_component(v_list, i):
     res = None
     for v in v_list:
@@ -620,16 +631,19 @@ def _flatten_helper(l):
             yield x
 
 
-def remove_all_from_list_in_place(l, elements):
+def remove_all_from_list_in_place(l, elements) -> int:
+    first_rm_idx = -1
     if len(l) == 0:
-        return l
+        return first_rm_idx
 
-    rem_set = set(elements)
+    rem_set = set(elements) if not isinstance(elements, set) else elements
     last_element = len(l) - 1
     i = 0
 
     while i <= last_element:
         if l[i] in rem_set:
+            if first_rm_idx == -1:
+                first_rm_idx = i
             while i <= last_element and l[last_element] in rem_set:
                 last_element -= 1
             if i > last_element:
@@ -640,6 +654,7 @@ def remove_all_from_list_in_place(l, elements):
         i += 1
 
     del l[(last_element + 1):]
+    return first_rm_idx
 
 
 def extend_or_empty_list_to_length(l, n, creator=None, in_place=True):

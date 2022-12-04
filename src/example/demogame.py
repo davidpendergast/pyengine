@@ -33,7 +33,7 @@ class DemoSheet(spritesheets.SpriteSheet):
         self.tv_models = [sprites.ImageModel(32 + 16 * i, 0, 16, 32, offset=start_pos) for i in range(0, 2)]
         self.floor_model = sprites.ImageModel(64, 16, 16, 16, offset=start_pos)
         self.wall_model = sprites.ImageModel(80, 16, 16, 16, offset=start_pos)
-        self.shadow_model = sprites.ImageModel(64, 0, 16, 16, offset=start_pos)
+        self.shadow_model = sprites.ImageModel(64, 0, 16, 16, offset=start_pos, translucent=True)
 
         self.border_models = []
         for y in range(0, 3):
@@ -127,16 +127,13 @@ class DemoGame(game.Game):
         yield DemoGame.demo_sheet
 
     def get_layers(self):
-        COLOR = True
-        SORTS = True
-        yield layers.ImageLayer(DemoGame.FLOOR_LAYER, 0, False, COLOR)
-        yield layers.ImageLayer(DemoGame.SHADOW_LAYER, 5, False, COLOR)
-        yield layers.ImageLayer(DemoGame.WALL_LAYER, 10, False, COLOR)
-        yield layers.PolygonLayer(DemoGame.POLYGON_LAYER, 12, SORTS)
-        yield layers.ImageLayer(DemoGame.ENTITY_LAYER, 15, SORTS, COLOR)
-
-        yield layers.ImageLayer(DemoGame.UI_FG_LAYER, 20, SORTS, COLOR)
-        yield layers.ImageLayer(DemoGame.UI_BG_LAYER, 19, SORTS, COLOR)
+        yield layers.ImageLayer(DemoGame.FLOOR_LAYER, 0)
+        yield layers.ImageLayer(DemoGame.SHADOW_LAYER, 5)
+        yield layers.ImageLayer(DemoGame.WALL_LAYER, 10)
+        yield layers.PolygonLayer(DemoGame.POLYGON_LAYER, 12)
+        yield layers.ImageLayer(DemoGame.ENTITY_LAYER, 15)
+        yield layers.ImageLayer(DemoGame.UI_FG_LAYER, 20)
+        yield layers.ImageLayer(DemoGame.UI_BG_LAYER, 19)
         
     def update(self):
         if len(self.entity_sprites) == 0:
