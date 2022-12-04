@@ -1,9 +1,10 @@
 import pygame
 
-from src.utils.util import Utils
+import src.utils.util as util
 import src.engine.sounds as sounds
 import src.engine.window as window
 import src.engine.inputs as inputs
+import src.engine.keybinds as keybinds
 
 import src.engine.renderengine as renderengine
 import src.engine.spritesheets as spritesheets
@@ -28,6 +29,8 @@ class _GameLoop:
     def __init__(self, game):
         self._game = game
         self._clock = pygame.time.Clock()
+        self._requested_fullscreen_toggle_this_tick = False
+        self._slo_mo_timer = 0
 
         print("INFO: pygame version: " + pygame.version.ver)
         print("INFO: initializing sounds...")
@@ -36,66 +39,73 @@ class _GameLoop:
         pygame.mixer.init()
         pygame.init()
 
-        window_icon = pygame.image.load(Utils.resource_path("assets/icon.png"))
-        pygame.display.set_icon(window_icon)
+        if configs.runtime_icon_path is not None:
+            window_icon = pygame.image.load(util.resource_path(configs.runtime_icon_path))
+            window_icon.set_colorkey((255, 0, 0))
+        else:
+            window_icon = None
 
-        window.create_instance(window_size=configs.default_window_size, min_size=configs.minimum_window_size)
+        print("INFO: creating window...")
+        window.create_instance(window_size=configs.default_window_size,
+                               min_size=configs.minimum_window_size,
+                               opengl_mode=not configs.start_in_compat_mode)
         window.get_instance().set_caption(configs.name_of_game)
+        window.get_instance().set_icon(window_icon)
         window.get_instance().show()
 
-        render_eng = renderengine.create_instance()
+        glsl_version_to_use = None
+        if window.get_instance().is_opengl_mode():
+            # make sure we can actually support OpenGL
+            glsl_version_to_use = renderengine.check_system_glsl_version(or_else_throw=False)
+            if glsl_version_to_use is None:
+                window.get_instance().set_opengl_mode(False)
+
+        print("INFO: creating render engine...")
+        render_eng = renderengine.create_instance(glsl_version_to_use)
         render_eng.init(*configs.default_window_size)
         render_eng.set_min_size(*configs.minimum_window_size)
 
+        inputs.create_instance()
+        keybinds.create_instance()
+
         sprite_atlas = spritesheets.create_instance()
-        for sheet in self._game.create_sheets():
+
+        for sheet in self._game.get_sheets():
             sprite_atlas.add_sheet(sheet)
 
         atlas_surface = sprite_atlas.create_atlas_surface()
 
+        # uncomment for fun
+        # import src.utils.artutils as artutils
+        # artutils.rainbowfill(atlas_surface)
+
         # uncomment to save out the full texture atlas
         # pygame.image.save(atlas_surface, "texture_atlas.png")
 
-        texture_data = pygame.image.tostring(atlas_surface, "RGBA", 1)
-        width = atlas_surface.get_width()
-        height = atlas_surface.get_height()
-        render_eng.set_texture(texture_data, width, height)
+        render_eng.set_texture_atlas(atlas_surface)
 
-        for layer in self._game.create_layers():
+        for layer in self._game.get_layers():
             renderengine.get_instance().add_layer(layer)
 
-        inputs.create_instance()
-
-        px_scale = self._calc_pixel_scale(window.get_instance().get_display_size())
+        px_scale = window.calc_pixel_scale(window.get_instance().get_display_size())
         render_eng.set_pixel_scale(px_scale)
 
-    def _calc_pixel_scale(self, screen_size):
-        if configs.auto_resize_pixel_scale:
-            screen_w, screen_h = screen_size
-            optimal_w = configs.optimal_window_size[0]
-            optimal_h = configs.optimal_window_size[1]
+        self._game.initialize()
 
-            optimal_scale = configs.optimal_pixel_scale
-            min_scale = configs.minimum_auto_pixel_scale
-            max_scale = min(int(screen_w / optimal_w * optimal_scale + 1), int(screen_h / optimal_h * optimal_scale + 1))
+        if configs.is_dev:
+            keybinds.get_instance().set_global_action(pygame.K_F1, "toggle profiling", lambda: self._toggle_profiling())
 
-            # when the screen is large enough to fit this quantity of (minimal) screens at a
-            # particular scaling setting, that scale is considered good enough to switch to.
-            # we choose the largest (AKA most zoomed in) "good" scale.
-            step_up_x_ratio = 1.0
-            step_up_y_ratio = 1.0
+        if configs.allow_fullscreen:
+            keybinds.get_instance().set_global_action(pygame.K_F4, "fullscreen",
+                                                      lambda: self._request_fullscreen_toggle())
 
-            best = min_scale
-            for i in range(min_scale, max_scale + 1):
-                if (optimal_w / optimal_scale * i * step_up_x_ratio <= screen_w
-                        and optimal_h / optimal_scale * i * step_up_y_ratio <= screen_h):
-                    best = i
-                else:
-                    break
+    def _toggle_profiling(self):
+        # used to help find performance bottlenecks
+        import src.utils.profiling as profiling
+        profiling.get_instance().toggle()
 
-            return best
-        else:
-            return configs.optimal_pixel_scale
+    def _request_fullscreen_toggle(self):
+        self._requested_fullscreen_toggle_this_tick = True
 
     def run(self):
         running = True
@@ -107,18 +117,22 @@ class _GameLoop:
             all_resize_events = []
 
             input_state = inputs.get_instance()
+            input_state.pre_update()
+
             for py_event in pygame.event.get():
                 if py_event.type == pygame.QUIT:
                     running = False
                     continue
                 elif py_event.type == pygame.KEYDOWN:
-                    input_state.set_key(py_event.key, True)
+                    input_state.set_key(py_event.key, True, ascii_val=py_event.unicode)
+                    keybinds.get_instance().do_global_action_if_necessary(py_event.key)
+
                 elif py_event.type == pygame.KEYUP:
                     input_state.set_key(py_event.key, False)
 
                 elif py_event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
                     scr_pos = window.get_instance().window_to_screen_pos(py_event.pos)
-                    game_pos = Utils.round(Utils.mult(scr_pos, 1 / renderengine.get_instance().get_pixel_scale()))
+                    game_pos = util.round_vec(util.mult(scr_pos, 1 / renderengine.get_instance().get_pixel_scale()))
                     input_state.set_mouse_pos(game_pos)
 
                     if py_event.type == pygame.MOUSEBUTTONDOWN:
@@ -135,12 +149,13 @@ class _GameLoop:
             ignore_resize_events_this_tick = ignore_resize_events_next_tick
             ignore_resize_events_next_tick = False
 
-            if input_state.was_pressed(pygame.K_F4) and configs.allow_fullscreen:
+            if self._requested_fullscreen_toggle_this_tick:
+                # TODO I have no idea if this **** is still necessary in pygame 2+
                 win = window.get_instance()
                 win.set_fullscreen(not win.is_fullscreen())
 
                 new_size = win.get_display_size()
-                new_pixel_scale = self._calc_pixel_scale(new_size)
+                new_pixel_scale = window.calc_pixel_scale(new_size)
                 if new_pixel_scale != renderengine.get_instance().get_pixel_scale():
                     renderengine.get_instance().set_pixel_scale(new_pixel_scale)
                 renderengine.get_instance().resize(new_size[0], new_size[1], px_scale=new_pixel_scale)
@@ -151,33 +166,32 @@ class _GameLoop:
                 # before the fullscreen happened.
                 ignore_resize_events_next_tick = True
 
+            self._requested_fullscreen_toggle_this_tick = False
+
             if not ignore_resize_events_this_tick and len(all_resize_events) > 0:
                 last_resize_event = all_resize_events[-1]
-
                 window.get_instance().set_window_size(last_resize_event.w, last_resize_event.h)
 
                 display_w, display_h = window.get_instance().get_display_size()
-                new_pixel_scale = self._calc_pixel_scale((last_resize_event.w, last_resize_event.h))
+                new_pixel_scale = window.calc_pixel_scale((last_resize_event.w, last_resize_event.h))
 
                 renderengine.get_instance().resize(display_w, display_h, px_scale=new_pixel_scale)
-
-            if configs.is_dev and input_state.was_pressed(pygame.K_F1):
-                # used to help find performance bottlenecks
-                import src.utils.profiling as profiling
-                profiling.get_instance().toggle()
 
             input_state.update()
             sounds.update()
 
             # updates the actual game state
-            self._game.update()
+            still_running = self._game.update()
+
+            if still_running is False:
+                running = False
 
             # draws the actual game state
             for spr in self._game.all_sprites():
                 if spr is not None:
                     renderengine.get_instance().update(spr)
 
-            renderengine.get_instance().set_clear_color(configs.clear_color)
+            renderengine.get_instance().set_clear_color(self._game.get_clear_color())
             renderengine.get_instance().render_layers()
 
             pygame.display.flip()
@@ -189,10 +203,21 @@ class _GameLoop:
 
             globaltimer.inc_tick_count()
 
-            if globaltimer.tick_count() % configs.target_fps == 0:
+            if globaltimer.get_show_fps():
+                if globaltimer.tick_count() % 20 == 0:
+                    window.get_instance().set_caption_info("FPS", "{:.1f}".format(globaltimer.get_fps()))
+            elif globaltimer.tick_count() % configs.target_fps == 0:
                 if globaltimer.get_fps() < 0.9 * configs.target_fps and configs.is_dev and not slo_mo_mode:
                     print("WARN: fps drop: {} ({} sprites)".format(round(globaltimer.get_fps() * 10) / 10.0,
                                                                    renderengine.get_instance().count_sprites()))
+            if slo_mo_mode:
+                self._slo_mo_timer += 1
+            elif self._slo_mo_timer > 0:
+                # useful for timing things in the game
+                print("INFO: slow-mo mode ended after {} tick(s)".format(self._slo_mo_timer))
+                self._slo_mo_timer = 0
+
+        self._game.cleanup()
 
         print("INFO: quitting game")
         pygame.quit()

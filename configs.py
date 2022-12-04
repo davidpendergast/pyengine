@@ -2,7 +2,9 @@
 import os.path
 
 name_of_game = "Demo Game"
-version = "1.0.0"
+version = "0.0.0"
+userdata_subdir = "demo"
+runtime_icon_path = os.path.join("assets", "icon.png")
 
 
 """ Display """
@@ -29,6 +31,15 @@ precise_fps = False
 
 
 """ Miscellaneous """
+start_in_compat_mode = False
 do_crash_reporting = True  # whether to produce a crash file when the program exits via an exception.
+
 is_dev = os.path.exists(".gitignore")  # yikes
+
+key_repeat_delay = 30  # keys held for longer than this many ticks will start to be typed repeatedly
+key_repeat_period = 5  # after the delay has passed, the key will be typed every X ticks until released
+
+
+""" 3D Debug """
+wireframe_3d = False
 
