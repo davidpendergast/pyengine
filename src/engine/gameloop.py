@@ -199,8 +199,9 @@ class _GameLoop:
             slo_mo_mode = configs.is_dev and input_state.is_held(pygame.K_TAB)
             target_fps = configs.target_fps if not slo_mo_mode else configs.target_fps // 4
 
-            self._wait_until_next_frame(target_fps)
+            dt = self._wait_until_next_frame(target_fps)
 
+            globaltimer.set_dt(dt, target_dt=1000 / target_fps)
             globaltimer.inc_tick_count()
 
             if globaltimer.get_show_fps():
@@ -222,11 +223,11 @@ class _GameLoop:
         print("INFO: quitting game")
         pygame.quit()
 
-    def _wait_until_next_frame(self, target_fps):
+    def _wait_until_next_frame(self, target_fps) -> int:
         if configs.precise_fps:
-            self._clock.tick_busy_loop(target_fps)
+            return self._clock.tick_busy_loop(target_fps)
         else:
-            self._clock.tick(target_fps)
+            return self._clock.tick(target_fps)
 
 
 

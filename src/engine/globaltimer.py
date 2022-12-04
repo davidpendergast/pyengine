@@ -2,11 +2,14 @@ import time
 
 _TICK_COUNT = 0
 
+_DT = 0  # delta time of the current frame, in milliseconds
+_DT_RATIO = 1
+
 # used for fps tracking
 _TICK_TIMES = [time.time()] * 10
 _TICK_TIME_IDX = 0
 
-_SHOW_FPS = False
+_SHOW_FPS = False  # if true, current FPS will be shown in the window caption.
 
 
 def tick_count():
@@ -25,6 +28,29 @@ def inc_tick_count():
     global _TICK_TIME_IDX
     _TICK_TIMES[_TICK_TIME_IDX] = time.time()
     _TICK_TIME_IDX = (_TICK_TIME_IDX + 1) % len(_TICK_TIMES)  # circular list
+
+
+def dt():
+    """Returns the "delta time" of the current frame, in milliseconds.
+
+    This describes the amount of wall-clock time that passed between
+    the prior frame and the current frame.
+    """
+    return _DT
+
+
+def set_dt(dt_millis, target_dt=None):
+    """Sets the delta time for the current frame, in milliseconds."""
+    global _DT, _DT_RATIO
+    _DT = dt_millis
+    _DT_RATIO = 1 if target_dt is None else dt_millis / target_dt
+
+
+def dt_ratio():
+    """Returns the ratio between dt and the target delta time.
+    When the game is running slower than expected, this ratio will be greater than 1.
+    """
+    return _DT_RATIO
 
 
 def get_fps():

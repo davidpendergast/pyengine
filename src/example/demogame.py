@@ -194,25 +194,15 @@ class DemoGame(game.Game):
         anim_tick = globaltimer.tick_count() // 16
 
         kb = keybinds.get_instance()
+        dx, dy = inputs.get_instance().is_held_four_way(left=kb.get_keys(UserInputs.MOVE_LEFT),
+                                                        right=kb.get_keys(UserInputs.MOVE_RIGHT),
+                                                        negy=kb.get_keys(UserInputs.MOVE_UP),
+                                                        posy=kb.get_keys(UserInputs.MOVE_DOWN))
+        new_xflip = True if dx > 0 else (False if dx < 0 else None)
 
-        speed = 2
-        dx = 0
-        new_xflip = None
-        if inputs.get_instance().is_held(kb.get_keys(UserInputs.MOVE_LEFT)):
-            dx -= speed
-            new_xflip = False
-        elif inputs.get_instance().is_held(kb.get_keys(UserInputs.MOVE_RIGHT)):
-            dx += speed
-            new_xflip = True
-
-        dy = 0
-        if inputs.get_instance().is_held(kb.get_keys(UserInputs.MOVE_UP)):
-            dy -= speed
-        elif inputs.get_instance().is_held(kb.get_keys(UserInputs.MOVE_DOWN)):
-            dy += speed
-
-        player_x = self.entity_positions[0][0] + dx
-        new_y = self.entity_positions[0][1] + dy
+        movespeed = 2
+        player_x = self.entity_positions[0][0] + dx * movespeed * globaltimer.dt_ratio()
+        new_y = self.entity_positions[0][1] + dy * movespeed * globaltimer.dt_ratio()
         player_y = max(new_y, int(1.1 * DemoGame.cell_size))  # collision with walls~
 
         screen_size = renderengine.get_instance().get_game_size()
@@ -251,23 +241,20 @@ class DemoGame(game.Game):
         max_rot_speed = 4
 
         if self.triangle_sprite is not None:
-            tri_center = self.triangle_center
-            tri_angle = self.triangle_angle * 2 * 3.141529 / 360
-            tri_length = self.triangle_length
-
-            p1 = util.add(tri_center, util.rotate((tri_length, 0), tri_angle))
-            p2 = util.add(tri_center, util.rotate((tri_length, 0), tri_angle + 3.141529 * 2 / 3))
-            p3 = util.add(tri_center, util.rotate((tri_length, 0), tri_angle + 3.141529 * 4 / 3))
-
-            self.triangle_sprite = self.triangle_sprite.update(new_points=(p1, p2, p3))
-
-            player_dist = util.dist(self.entity_positions[0], tri_center)
+            player_dist = util.dist(self.entity_positions[0], self.triangle_center)
             if player_dist > 100:
                 rot_speed = min_rot_speed
             else:
                 rot_speed = util.linear_interp(min_rot_speed, max_rot_speed, (100 - player_dist) / 100)
+            self.triangle_angle += rot_speed * globaltimer.dt_ratio()
 
-            self.triangle_angle += rot_speed
+            tri_angle = self.triangle_angle * 2 * 3.141529 / 360
+
+            p1 = util.add(self.triangle_center, util.rotate((self.triangle_length, 0), tri_angle))
+            p2 = util.add(self.triangle_center, util.rotate((self.triangle_length, 0), tri_angle + 3.141529 * 2 / 3))
+            p3 = util.add(self.triangle_center, util.rotate((self.triangle_length, 0), tri_angle + 3.141529 * 4 / 3))
+
+            self.triangle_sprite = self.triangle_sprite.update(new_points=(p1, p2, p3))
 
         text_inset = 4
 
@@ -308,6 +295,14 @@ class DemoGame(game.Game):
             self.text_box_sprite = self.text_box_sprite.update(new_rect=info_text_rect, new_scale=2)
 
         if len(self.cube_line_sprites) == 12:
+            player_dist = util.dist(self.entity_positions[0], self.cube_center)
+            if player_dist > 100:
+                rotation_speed = min_rot_speed
+            else:
+                rotation_speed = util.linear_interp(min_rot_speed, max_rot_speed, (100 - player_dist) / 100)
+
+            self.cube_angle += rotation_speed * globaltimer.dt_ratio()
+
             cube_center = self.cube_center
             cube_angle = self.cube_angle * 2 * 3.141529 / 360
             cube_length = self.cube_length
@@ -334,14 +329,6 @@ class DemoGame(game.Game):
                     p2 = cube_top_pts[i % 4]
 
                 self.cube_line_sprites[i].update(new_p1=p1, new_p2=p2, new_color=cube_color)
-
-            player_dist = util.dist(self.entity_positions[0], cube_center)
-            if player_dist > 100:
-                rotation_speed = min_rot_speed
-            else:
-                rotation_speed = util.linear_interp(min_rot_speed, max_rot_speed, (100 - player_dist) / 100)
-
-            self.cube_angle += rotation_speed
 
         # setting layer positions
         camera_x = player_x - screen_size[0] // 2

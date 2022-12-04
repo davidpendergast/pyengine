@@ -133,29 +133,29 @@ class InputState:
         else:
             return False
 
-    def is_held_four_way(self, left=None, right=None, up=None, down=None):
+    def is_held_four_way(self, left=None, right=None, posy=None, negy=None):
         x = 0
         if left is not None and self.is_held(left):
             x -= 1
         if right is not None and self.is_held(right):
             x += 1
         y = 0
-        if up is not None and self.is_held(up):
+        if posy is not None and self.is_held(posy):
             y += 1
-        if down is not None and self.is_held(down):
+        if negy is not None and self.is_held(negy):
             y -= 1
         return (x, y)
 
-    def was_pressed_four_way(self, left=None, right=None, up=None, down=None):
+    def was_pressed_four_way(self, left=None, right=None, posy=None, negy=None):
         x = self.was_pressed_two_way(left, right)
-        y = self.was_pressed_two_way(up, down)  # down is always positive
+        y = self.was_pressed_two_way(posy, negy)
         return (x, y)
 
-    def was_pressed_two_way(self, lower, upper):
+    def was_pressed_two_way(self, negative, positive):
         x = 0
-        if lower is not None and self.was_pressed(lower):
+        if negative is not None and self.was_pressed(negative):
             x -= 1
-        if upper is not None and self.was_pressed(upper):
+        if positive is not None and self.was_pressed(positive):
             x += 1
         return x
 
