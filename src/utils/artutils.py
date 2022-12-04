@@ -60,50 +60,6 @@ def flood_fill(surface: pygame.Surface, target_colors, start_pos, bound_rect=Non
     return [p for p in bft(start_pos, _cond, bound_rect=bound_rect, rng_seed=rng_seed)]
 
 
-def maze_fill(surface: pygame.Surface, target_colors, start_pos,
-              avoid_colors=None, density=1.0, rng_seed=None, bound_rect=None):
-
-    bound_rect = _make_bound_for_surface(surface, bound_rect)
-    domain = [pt for pt in flood_fill(surface, target_colors, start_pos,
-                                      bound_rect=bound_rect, rng_seed=rng_seed)]
-    filled = set()
-
-    for n in domain:
-        if avoid_colors is not None:
-            should_skip = False
-            for m in util.neighbors(n[0], n[1], and_diags=True):
-                if util.rect_contains(bound_rect, m):
-                    m_color = rm_alpha(tuple(surface.get_at(m)))
-                    if m_color in avoid_colors:
-                        should_skip = True
-                        break
-            if should_skip:
-                continue
-
-        total_connection_count = len([n for n in util.neighbors(n[0], n[1], and_diags=True) if n in filled])
-        if total_connection_count == 0:
-            if random.random() < density:
-                filled.add(n)
-        else:
-            skip = False
-            for m in util.diag_neighbors(n[0], n[1]):
-                if m in filled:
-                    bridge1 = (n[0], m[1])
-                    bridge2 = (m[0], n[1])
-                    if (bridge1 in filled) is (bridge2 in filled):
-                        skip = True
-                        break
-            if skip:
-                continue
-            else:
-                # the position is valid to fill
-                ortho_connection_count = len([n for n in util.neighbors(n[0], n[1], and_diags=False) if n in filled])
-                fill_chance = density * (1 - ortho_connection_count / 4)
-                if random.random() < fill_chance:
-                    filled.add(n)
-    return filled
-
-
 def find_color_regions(surface: pygame.Surface, bound_rect=None, colors_to_include=None):
     bound_rect = _make_bound_for_surface(surface, bound_rect)
     res = {}  # color -> list of sets of (x, y)
@@ -153,33 +109,6 @@ def region_color_fill(surface: pygame.Surface, regions, color_provider):
             surface.set_at(r, add_alpha(color))
 
 
-def darker(color, pcnt=0.2):
-    if pcnt < 0:
-        return lighter(color, pcnt=-pcnt)
-    res = []
-    for c in color:
-        res.append(max(0, min(255, int(c * (1 - pcnt)))))
-    return tuple(res)
-
-
-def lighter(color, pcnt=0.2):
-    if pcnt < 0:
-        return darker(color, pcnt=-pcnt)
-    res = []
-    for c in color:
-        dist = 255 - c
-        new_dist = int(dist) * (1 - pcnt)
-        res.append(max(0, min(255, int(255 - new_dist))))
-    return tuple(res)
-
-
-def is_transparent(color):
-    if len(color) < 4:
-        return False
-    else:
-        return color[2] == 0
-
-
 def find_bounding_rect(search_rect, sheet, keep_horz=False, keep_vert=False):
     if keep_horz and keep_vert:
         return search_rect
@@ -203,7 +132,7 @@ def find_bounding_rect(search_rect, sheet, keep_horz=False, keep_vert=False):
         for y in range(search_rect[1], search_rect[1] + search_rect[3]):
             if 0 <= x < sheet_size[0] and 0 <= y < sheet_size[1]:
                 color = sheet.get_at((x, y))
-                if not is_transparent(color):
+                if not colorutils.is_transparent(color):
                     if min_x is None:
                         min_x = x
                         max_x = x
@@ -342,10 +271,10 @@ def draw_wtih_color_xform(src_sheet, src_rect, dest_sheet, dest_xy, xform=lambda
     for x in range(src_rect[0], src_rect[0] + src_rect[2]):
         for y in range(src_rect[1], src_rect[1] + src_rect[3]):
             orig_rgba = add_alpha(src_sheet.get_at((x, y)))
-            orig_rgba = colorutils.to_floatn(orig_rgba)
+            orig_rgba = colorutils.to_float(orig_rgba)
 
             new_rgba = xform(orig_rgba)
-            new_rgba = colorutils.to_intn(new_rgba)
+            new_rgba = colorutils.to_int(new_rgba)
             dest_pos = (dest_xy[0] + x - src_rect[0], dest_xy[1] + y - src_rect[1])
             dest_sheet.set_at(dest_pos, new_rgba)
 
@@ -391,7 +320,7 @@ def rainbowfill(surface, rect=None, rainbow_height=None):
 
             h = pcnt_y * 360
             rgb = colorutils.hsv_to_rgb(h, 1, 1)
-            rgb_int = colorutils.to_intn(rgb)
+            rgb_int = colorutils.to_int(rgb)
             surface.set_at((x, y), rgb_int)
 
 

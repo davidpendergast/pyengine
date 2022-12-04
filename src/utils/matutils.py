@@ -170,14 +170,3 @@ def get_xyz_rotations(R):
     return (x, y, z)
 
 
-def rotate_to_direction(v1, v2, up_vec):
-    """
-    :param v1: base unit vector
-    :param v2: target unit vector
-    :param axial_rot: rotation along the axis of the target vector.
-    :return: A rotation matrix that brings v1 to v2, with an optional axial rotation as well.
-    """
-    z_rot = util.angle_between((v1[0], v1[1]), (v2[0], v2[1]))
-    y_rot = util.angle_between((v1[0], v1[2]), (v2[0], v2[2]))
-    x_rot = util.angle_between((v1[0], v1[2]), (v2[0], v2[2]))
-

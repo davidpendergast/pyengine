@@ -24,10 +24,9 @@ class Profiler:
         if not self.is_running:
             self.pr.disable()
 
-            sortby = 'cumulative'
             ps = pstats.Stats(self.pr)
             ps.strip_dirs()
-            ps.sort_stats(sortby)
+            ps.sort_stats('cumulative')
             ps.print_stats(35)
 
         else:

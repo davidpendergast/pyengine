@@ -1,41 +1,42 @@
+import typing
 
 
 def _bound(v, lower, upper):
     return max(min(v, upper), lower)
 
 
-def to_float(r, g, b, a=None):
-    rf = _bound(r / 256, 0, 1)
-    gf = _bound(g / 256, 0, 1)
-    bf = _bound(b / 256, 0, 1)
-    if a is not None:
-        return (rf, gf, bf, _bound(a / 256, 0, 1))
+def to_float(r, g=0, b=0, a=None):
+    """Takes a color with components 0-255 and converts it to a color with components 0-1"""
+    if isinstance(r, (tuple, list)):
+        return tuple(_bound(v / 255, 0, 1) for v in r)
     else:
-        return (rf, gf, bf)
+        rf = _bound(r / 256, 0, 1)
+        gf = _bound(g / 256, 0, 1)
+        bf = _bound(b / 256, 0, 1)
+        if a is not None:
+            return (rf, gf, bf, _bound(a / 256, 0, 1))
+        else:
+            return (rf, gf, bf)
 
 
-def to_floatn(color):
-    return tuple(_bound(v / 255, 0, 1) for v in color)
-
-
-def to_int(r, g, b, a=None):
-    ri = _bound(int(r * 256), 0, 255)
-    gi = _bound(int(g * 256), 0, 255)
-    bi = _bound(int(b * 256), 0, 255)
-    if a is not None:
-        return (ri, gi, bi, _bound(int(a * 256), 0, 255))
+def to_int(r, g=0, b=0, a=None):
+    """Takes a color with components 0-1 and converts it to a color with components 0-255 (rounded)"""
+    if isinstance(r, tuple):
+        return tuple(_bound(v * 256, 0, 255) for v in r)
     else:
-        return (ri, gi, bi)
+        ri = _bound(int(r * 256), 0, 255)
+        gi = _bound(int(g * 256), 0, 255)
+        bi = _bound(int(b * 256), 0, 255)
+        if a is not None:
+            return (ri, gi, bi, _bound(int(a * 256), 0, 255))
+        else:
+            return (ri, gi, bi)
 
 
-def to_intn(color):
-    return tuple(_bound(v * 256, 0, 255) for v in color)
-
-
-def darken(float_color, darkness):
-    rgb = (_bound((1 - darkness) * float_color[0], 0, 1),
-           _bound((1 - darkness) * float_color[1], 0, 1),
-           _bound((1 - darkness) * float_color[2], 0, 1))
+def darker(float_color, pcnt=0.2):
+    rgb = (_bound((1 - pcnt) * float_color[0], 0, 1),
+           _bound((1 - pcnt) * float_color[1], 0, 1),
+           _bound((1 - pcnt) * float_color[2], 0, 1))
 
     if len(float_color) >= 4:
         return (rgb[0], rgb[1], rgb[2], float_color[3])
@@ -43,11 +44,38 @@ def darken(float_color, darkness):
         return rgb
 
 
-def lighten(float_color, lightness):
-    return darken(float_color, -lightness)
+def lighter(float_color, pcnt=0.2):
+    return darker(float_color, -pcnt)
 
 
-def hsv_to_rgb(h, s, v):
+def darker_int(color, pcnt=0.2):
+    if pcnt < 0:
+        return lighter_int(color, pcnt=-pcnt)
+    res = []
+    for c in color:
+        res.append(max(0, min(255, int(c * (1 - pcnt)))))
+    return tuple(res)
+
+
+def lighter_int(color, pcnt=0.2):
+    if pcnt < 0:
+        return darker_int(color, pcnt=-pcnt)
+    res = []
+    for c in color:
+        dist = 255 - c
+        new_dist = int(dist) * (1 - pcnt)
+        res.append(max(0, min(255, int(255 - new_dist))))
+    return tuple(res)
+
+
+def is_transparent(color, pcnt_thresh=0) -> bool:
+    if len(color) < 4:
+        return False
+    else:
+        return color[3] <= pcnt_thresh
+
+
+def hsv_to_rgb(h, s, v) -> typing.Tuple[float, float, float]:
     """
     :param h: 0 <= h < 360
     :param s: 0 <= s <= 1
